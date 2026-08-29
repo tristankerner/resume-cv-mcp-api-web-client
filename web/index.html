@@ -1,0 +1,2381 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>resume-api client</title>
+
+<!--
+  A hand-authored, no-build single-page client for resume-api. Runs as-is off
+  a pinned CDN — see client/README.md for the two ways to run it.
+
+  Subresource integrity: a plain `import` statement cannot itself carry an
+  `integrity` hash — no stable browser supports that yet — so each CDN module
+  is instead named once in a `<link rel="modulepreload" integrity="...">`
+  below. Per the Fetch/HTML module-map spec, that preload fetch is verified
+  against the hash, and the `import` of the same URL later in this file
+  reuses the verified module-map entry rather than issuing a second,
+  unverified fetch. Both versions are pinned exactly; never bump to `@latest`.
+-->
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js" integrity="sha384-StNNHifqKmppGEDNqrv+YtX8PD3mhAhLtNbioQ4QxbPNqaTnktcDjsIPGjcDoiKa" crossorigin="anonymous" />
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/vanilla-jsoneditor@3.13.0/standalone.js" integrity="sha384-hK8kMRtwx7rgbr4fIFDLac8rswTKMdzaXy6RKJtKO5nP0kNg9oOZPhAy3b1mPujt" crossorigin="anonymous" />
+
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #f0f1f4;
+    --text: #1a1d23;
+    --text-muted: #5b6270;
+    --border: #d8dbe1;
+    --accent: #2f6feb;
+    --accent-text: #ffffff;
+    --danger: #c0362c;
+    --danger-bg: #fbeceb;
+    --success: #1a7f4e;
+    --success-bg: #e9f7ef;
+    --warn: #9a6700;
+    --warn-bg: #fff6e0;
+    --radius: 8px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+      Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  :root[data-theme="dark"],
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161a;
+      --surface: #1c1f26;
+      --surface-2: #23262f;
+      --text: #e7e9ee;
+      --text-muted: #9aa1b0;
+      --border: #333844;
+      --accent: #5b8def;
+      --accent-text: #0b1220;
+      --danger: #ff6b60;
+      --danger-bg: #3a1f1e;
+      --success: #4ad999;
+      --success-bg: #123527;
+      --warn: #e0b04a;
+      --warn-bg: #3a2f10;
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.45;
+    overflow-x: hidden;
+  }
+
+  #app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  a {
+    color: var(--accent);
+  }
+
+  h1,
+  h2,
+  h3 {
+    line-height: 1.25;
+    margin: 0 0 var(--space-3);
+  }
+
+  p {
+    margin: 0 0 var(--space-3);
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  input,
+  select,
+  textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-2) var(--space-3);
+    font-size: 16px; /* iOS Safari zooms the viewport on focus below this */
+    width: 100%;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+
+  label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: var(--space-1);
+  }
+
+  .field {
+    margin-bottom: var(--space-4);
+  }
+
+  .field-hint {
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    margin-top: var(--space-1);
+  }
+
+  .field-error {
+    color: var(--danger);
+    font-size: 0.8125rem;
+    margin-top: var(--space-1);
+  }
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 44px;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+  }
+
+  button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+
+  button.danger {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  button.subtle {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  /* Visually compact, but not a smaller touch target: 44px stays the floor
+     for every button, including "Revoke" in the API key list — the one
+     view §3.5 ranks first for mobile. */
+  button.small {
+    padding: var(--space-1) var(--space-3);
+    font-size: 0.875rem;
+  }
+
+  .button-row {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  /* Real spacing between a destructive action and its neighbours — a
+     "Revoke" 4px from "Copy" is a phone-specific failure. */
+  .button-row > button.danger {
+    margin-left: var(--space-3);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-5);
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px var(--space-2);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .badge.type-resume {
+    color: var(--accent);
+  }
+
+  .badge.public {
+    background: var(--success-bg);
+    color: var(--success);
+    border-color: transparent;
+  }
+
+  .badge.status-active {
+    background: var(--success-bg);
+    color: var(--success);
+    border-color: transparent;
+  }
+
+  .badge.status-expired,
+  .badge.status-revoked {
+    background: var(--surface-2);
+    color: var(--text-muted);
+  }
+
+  .banner {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius);
+    margin-bottom: var(--space-4);
+    font-size: 0.9375rem;
+  }
+
+  .banner.error {
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+
+  .banner.info {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .banner.success {
+    background: var(--success-bg);
+    color: var(--success);
+  }
+
+  .banner.warn {
+    background: var(--warn-bg);
+    color: var(--warn);
+  }
+
+  header.app-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  header.app-header .brand {
+    font-weight: 700;
+  }
+
+  nav.app-nav {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  nav.app-nav button {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-muted);
+  }
+
+  nav.app-nav button.active {
+    background: var(--surface-2);
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .session-countdown.low {
+    color: var(--danger);
+    font-weight: 600;
+  }
+
+  main.app-main {
+    flex: 1;
+    padding: var(--space-5);
+    max-width: 960px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  table th,
+  table td {
+    text-align: left;
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  table th {
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: var(--space-6);
+    color: var(--text-muted);
+  }
+
+  code {
+    font-family: var(--font-mono);
+    background: var(--surface-2);
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: 0.875em;
+  }
+
+  pre {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    background: var(--surface-2);
+    border-radius: var(--radius);
+    padding: var(--space-3);
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+  }
+
+  .json-editor-host {
+    height: 480px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  /* Present in the DOM, off-screen rather than display:none — some password
+     managers skip display:none fields when deciding what to autofill/save,
+     so a hidden username field next to a password field needs this instead. */
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .raw-compare {
+    display: flex;
+    gap: var(--space-3);
+  }
+
+  .raw-compare pre {
+    flex: 1;
+    min-width: 0;
+    max-height: 400px;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 12, 16, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    z-index: 100;
+  }
+
+  .overlay .card {
+    width: 100%;
+    max-width: 420px;
+    max-height: calc(100vh - var(--space-6));
+    overflow-y: auto;
+  }
+
+  .boot-splash {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+  }
+
+  /* --- Responsive: stacked cards instead of a table below the breakpoint. */
+  @media (max-width: 720px) {
+    header.app-header {
+      padding: var(--space-3);
+    }
+
+    main.app-main {
+      padding: var(--space-3);
+    }
+
+    table.reflow,
+    table.reflow thead,
+    table.reflow tbody,
+    table.reflow tr,
+    table.reflow td {
+      display: block;
+      width: 100%;
+    }
+
+    table.reflow thead {
+      display: none;
+    }
+
+    table.reflow tr {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: var(--space-3);
+      padding: var(--space-3);
+    }
+
+    table.reflow td {
+      border-bottom: none;
+      padding: var(--space-1) 0;
+    }
+
+    table.reflow td[data-label]::before {
+      content: attr(data-label);
+      display: block;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .overlay {
+      align-items: flex-end;
+      padding: 0;
+    }
+
+    .overlay .card {
+      max-width: none;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+
+    .raw-compare {
+      flex-direction: column;
+    }
+  }
+</style>
+
+<div id="app"></div>
+
+<script type="module">
+  import {
+    h,
+    html,
+    render,
+    useState,
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useMemo,
+  } from "https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js";
+  import {
+    createJSONEditor,
+    createAjvValidator,
+    toJSONContent,
+  } from "https://cdn.jsdelivr.net/npm/vanilla-jsoneditor@3.13.0/standalone.js";
+
+  // ---------------------------------------------------------------------
+  // Constants
+  // ---------------------------------------------------------------------
+
+  const DEFAULT_API_BASE = "http://localhost:8000";
+  // The path main.py serves this file at when CLIENT_HTML_PATH is set.
+  const SERVED_BY_API_PATH = "/client";
+  const API_BASE_STORAGE_KEY = "resume-api-client.api-base";
+  const SESSION_STORAGE_KEY = "resume-api-client.session";
+  const DOC_TYPES = ["resume", "metadata", "skill"];
+  const SESSION_LOW_WARNING_MS = 5 * 60 * 1000;
+
+  // ---------------------------------------------------------------------
+  // Session storage — {apiBase, token, exp, username} under one key.
+  // `exp` is read from the JWT payload by base64-decoding it, never
+  // signature-checked here: that is only to decide when to stop trying,
+  // never to authorize anything.
+  // ---------------------------------------------------------------------
+
+  function decodeJwtExp(token) {
+    try {
+      const payload = token.split(".")[1];
+      const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const json = JSON.parse(atob(normalized));
+      return typeof json.exp === "number" ? json.exp : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function loadSession() {
+    try {
+      const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.token || !parsed.apiBase || !parsed.exp) return null;
+      if (parsed.exp * 1000 < Date.now() + 60_000) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveSession(session) {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    localStorage.setItem(API_BASE_STORAGE_KEY, session.apiBase);
+  }
+
+  function clearSession() {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+  }
+
+  // The origin this page came from, when it came from the API itself.
+  //
+  // `location.origin` alone is not the test: a static file server hands this
+  // page out at `/` or `/index.html` and is not an API, and defaulting to it
+  // would be wrong in exactly the way the localhost default already is. The
+  // path is what distinguishes the two — main.py registers GET /client and
+  // nothing else serves this file there. A file:// page has no useful origin
+  // at all (`location.origin` is the string "null"), which the scheme check
+  // covers.
+  function apiOriginServingThisPage() {
+    const { origin, pathname } = window.location;
+    if (!origin.startsWith("http")) return null;
+    return pathname.replace(/\/+$/, "") === SERVED_BY_API_PATH ? origin : null;
+  }
+
+  function loadLastApiBase() {
+    // Served from the API, the base URL is not a preference to remember — it
+    // is a fact about where this page came from, and it outranks a stored
+    // value left over from pointing the same client somewhere else. The field
+    // stays editable; this only decides what it starts as.
+    return (
+      apiOriginServingThisPage() ||
+      localStorage.getItem(API_BASE_STORAGE_KEY) ||
+      DEFAULT_API_BASE
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // The clipboard capability helper (§3.5). Feature-detected once at call
+  // time, never probed: calling writeText() to test it would consume the
+  // transient user activation a real click needs, and could overwrite
+  // whatever the user already had on their clipboard.
+  // ---------------------------------------------------------------------
+
+  function clipboardMode() {
+    if (window.isSecureContext && typeof navigator.clipboard?.writeText === "function") {
+      return "async";
+    }
+    if (document.queryCommandSupported?.("copy")) {
+      return "exec";
+    }
+    return "none";
+  }
+
+  async function copyText(text) {
+    const mode = clipboardMode();
+    if (mode === "async") {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // Falls through to the exec attempt below — permission denied or
+        // activation lost to an intervening dialog is still possible even
+        // though the capability check passed.
+      }
+    }
+    if (mode === "async" || mode === "exec") {
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.focus();
+      el.select();
+      let ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false;
+      }
+      document.body.removeChild(el);
+      if (ok) return true;
+    }
+    return false;
+  }
+
+  // ---------------------------------------------------------------------
+  // API layer
+  // ---------------------------------------------------------------------
+
+  class ApiError extends Error {
+    constructor(status, kind, detail, fields) {
+      super(detail);
+      this.status = status;
+      this.kind = kind; // 'network' | 'unauthorized' | 'forbidden' | 'conflict' | 'validation' | 'http'
+      this.detail = detail;
+      this.fields = fields || null; // parsed 422 field errors, {field: [msg, ...]}
+    }
+  }
+
+  function parseValidationErrors(detail) {
+    const fields = {};
+    for (const err of detail) {
+      // loc is ["body", "field"] or ["body", "field", 0, "subfield"]; the
+      // leading "body"/"query"/"path" segment is not a field name.
+      const path = err.loc.slice(1).join(".");
+      (fields[path] ||= []).push(err.msg);
+    }
+    return fields;
+  }
+
+  async function request(method, path, { body, form, auth = true, apiBase } = {}) {
+    const session = store.state.session;
+    const base = apiBase || session?.apiBase || loadLastApiBase();
+    const headers = {};
+    let payload;
+    if (form) {
+      headers["Content-Type"] = "application/x-www-form-urlencoded";
+      payload = new URLSearchParams(form).toString();
+    } else if (body !== undefined) {
+      headers["Content-Type"] = "application/json";
+      payload = JSON.stringify(body);
+    }
+    if (auth && session?.token) {
+      headers["Authorization"] = `Bearer ${session.token}`;
+    }
+
+    let response;
+    try {
+      response = await fetch(base + path, { method, headers, body: payload });
+    } catch {
+      throw new ApiError(
+        0,
+        "network",
+        "Could not reach the server. This is almost always a CORS problem: " +
+          "make sure CLIENT_ALLOWED_ORIGINS on the server includes this page's " +
+          "origin, or that the API base URL above is correct and the server is running.",
+      );
+    }
+
+    if (response.status === 401 && auth) {
+      clearSession();
+      store.set({ session: null });
+      throw new ApiError(401, "unauthorized", "Your session has expired. Log in again.");
+    }
+
+    if (!response.ok) {
+      let detail = response.statusText || `HTTP ${response.status}`;
+      let fields = null;
+      let kind = "http";
+      if (response.status === 403) kind = "forbidden";
+      else if (response.status === 409) kind = "conflict";
+      else if (response.status === 422) kind = "validation";
+      try {
+        const data = await response.json();
+        if (Array.isArray(data.detail)) {
+          fields = parseValidationErrors(data.detail);
+          detail = data.detail.map((e) => `${e.loc.slice(1).join(".")}: ${e.msg}`).join("; ");
+        } else if (typeof data.detail === "string") {
+          detail = data.detail;
+        }
+      } catch {
+        // Non-JSON error body; the status text above is all there is.
+      }
+      throw new ApiError(response.status, kind, detail, fields);
+    }
+
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  const api = {
+    async login(apiBase, username, password) {
+      return request("POST", "/token", { form: { username, password }, auth: false, apiBase });
+    },
+    me: () => request("GET", "/users/me"),
+    schemas: () => request("GET", "/documents/schemas"),
+    listDocuments: () => request("GET", "/documents"),
+    getDocument: (type, name, revisions = 50, order = "newest_first") =>
+      request("GET", `/documents/${type}/${encodeURIComponent(name)}?revisions=${revisions}&order=${order}`),
+    upsertDocument: (type, body) => request("POST", `/documents/${type}`, { body }),
+    renameDocument: (name, newName) =>
+      request("PATCH", `/documents/${encodeURIComponent(name)}`, { body: { name: newName } }),
+    deleteDocument: (name) => request("DELETE", `/documents/${encodeURIComponent(name)}`),
+    listApiKeys: async () => (await request("GET", "/api-keys")).data,
+    createApiKey: (body) => request("POST", "/api-keys", { body }),
+    revokeApiKey: (id) => request("DELETE", `/api-keys/${id}`),
+    changePassword: (body) => request("POST", "/users/me/password", { body }),
+  };
+
+  // ---------------------------------------------------------------------
+  // A tiny global store. Every subscribed component re-renders on any
+  // change — fine at this size, and much less code than fine-grained
+  // reactivity would be for five views and a handful of modals.
+  // ---------------------------------------------------------------------
+
+  const store = {
+    state: {
+      booting: true,
+      session: null,
+      user: null,
+      schemas: null,
+      view: "documents",
+      viewParams: null,
+    },
+    listeners: new Set(),
+    set(patch) {
+      store.state = { ...store.state, ...(typeof patch === "function" ? patch(store.state) : patch) };
+      for (const l of store.listeners) l();
+    },
+    navigate(view, viewParams = null) {
+      store.set({ view, viewParams });
+    },
+  };
+
+  function useStore() {
+    const [, force] = useState(0);
+    // useLayoutEffect, not useEffect: it runs synchronously as part of the
+    // initial render commit, before boot() (called immediately after the
+    // first `render()`) gets a chance to run. useEffect is deferred to a
+    // requestAnimationFrame callback, which browsers pause for a backgrounded
+    // or not-yet-composited tab — a real environment, not just a test
+    // artifact — so a state change notified before that callback fires would
+    // silently reach zero listeners and never repaint.
+    useLayoutEffect(() => {
+      const listener = () => force((n) => n + 1);
+      store.listeners.add(listener);
+      return () => store.listeners.delete(listener);
+    }, []);
+    return store.state;
+  }
+
+  // ---------------------------------------------------------------------
+  // Scope gating — UserDto.scopes drives what the UI offers, rather than
+  // discovering permissions by failing.
+  // ---------------------------------------------------------------------
+
+  function hasScope(user, scope) {
+    return !!user && Array.isArray(user.scopes) && user.scopes.includes(scope);
+  }
+
+  const scopesForType = (type) => ({
+    read: `${type}:read`,
+    write: `${type}:write`,
+    delete: `${type}:delete`,
+  });
+
+  function readableTypes(user) {
+    return DOC_TYPES.filter((t) => hasScope(user, scopesForType(t).read));
+  }
+  function writableTypes(user) {
+    return DOC_TYPES.filter((t) => hasScope(user, scopesForType(t).write));
+  }
+
+  // ---------------------------------------------------------------------
+  // Name validation — mirrors reject_unreachable_names server-side, so a
+  // bad name is caught before the round trip. Not a substitute for it: the
+  // server is still the authority, and these rules must not drift ahead of
+  // what it actually enforces.
+  // ---------------------------------------------------------------------
+
+  function validateDocumentName(name) {
+    if (!name || !name.trim()) return "Document name cannot be blank.";
+    if (name.includes("/") || name.includes("\\")) {
+      return "Document name cannot contain a path separator.";
+    }
+    if ([...name].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127)) {
+      return "Document name cannot contain control characters.";
+    }
+    if (name.length > 255) return "Document name cannot be longer than 255 characters.";
+    return null;
+  }
+
+  // ---------------------------------------------------------------------
+  // Password complexity — mirrors validate_password_complexity server-side:
+  // 8+ characters with upper, lower, digit and punctuation.
+  //
+  // Unicode property escapes rather than [A-Z]/[a-z]/[0-9], because the
+  // server's rules are Python's str.isupper/islower/isdigit, which are
+  // Unicode-aware. ASCII classes here rejected passwords the server would
+  // have accepted — "Éxample1!" showed "An uppercase letter" unmet — which
+  // fails safe but tells the user something untrue about their own password.
+  //
+  // A Set rather than a regex class for punctuation, so string.punctuation's
+  // characters (several of which are regex metacharacters) do not have to be
+  // re-escaped by hand. That one is exactly ASCII on the server too.
+  // ---------------------------------------------------------------------
+
+  const PUNCTUATION = new Set('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~'.split(""));
+
+  function passwordComplexityChecks(pw) {
+    return [
+      { label: "At least 8 characters", met: pw.length >= 8 },
+      { label: "An uppercase letter", met: /\p{Lu}/u.test(pw) },
+      { label: "A lowercase letter", met: /\p{Ll}/u.test(pw) },
+      { label: "A digit", met: /\p{Nd}/u.test(pw) },
+      { label: "A special character", met: [...pw].some((c) => PUNCTUATION.has(c)) },
+    ];
+  }
+
+  // ---------------------------------------------------------------------
+  // Structural revision diff — walks both JSON trees to a flat map of
+  // path -> value and emits added/removed/changed paths, in the
+  // `section.field[index].field` notation the metadata and skill documents
+  // already use for paths. No diff library: this is deliberately small.
+  // ---------------------------------------------------------------------
+
+  function flattenForDiff(value, path, out) {
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        out[path] = [];
+        return;
+      }
+      value.forEach((item, i) => flattenForDiff(item, `${path}[${i}]`, out));
+    } else if (value !== null && typeof value === "object") {
+      const keys = Object.keys(value);
+      if (keys.length === 0) {
+        out[path] = {};
+        return;
+      }
+      for (const key of keys) flattenForDiff(value[key], path ? `${path}.${key}` : key, out);
+    } else {
+      out[path] = value;
+    }
+  }
+
+  function diffDocuments(left, right) {
+    const leftFlat = {};
+    flattenForDiff(left, "", leftFlat);
+    const rightFlat = {};
+    flattenForDiff(right, "", rightFlat);
+    const paths = new Set([...Object.keys(leftFlat), ...Object.keys(rightFlat)]);
+    const rows = [];
+    for (const path of paths) {
+      const hasLeft = Object.hasOwn(leftFlat, path);
+      const hasRight = Object.hasOwn(rightFlat, path);
+      const lv = leftFlat[path];
+      const rv = rightFlat[path];
+      if (!hasLeft) rows.push({ path, kind: "added", left: undefined, right: rv });
+      else if (!hasRight) rows.push({ path, kind: "removed", left: lv, right: undefined });
+      else if (JSON.stringify(lv) !== JSON.stringify(rv)) {
+        rows.push({ path, kind: "changed", left: lv, right: rv });
+      }
+    }
+    rows.sort((a, b) => a.path.localeCompare(b.path));
+    return rows;
+  }
+
+  function sectionOf(path) {
+    const match = path.match(/^[^.[]+/);
+    return match ? match[0] : path;
+  }
+
+  // ---------------------------------------------------------------------
+  // Boot sequence
+  // ---------------------------------------------------------------------
+
+  async function boot() {
+    const cached = loadSession();
+    if (!cached) {
+      store.set({ booting: false });
+      return;
+    }
+    store.set({ session: cached });
+    try {
+      const [user, schemas] = await Promise.all([api.me(), api.schemas()]);
+      store.set({ user, schemas, booting: false, view: "documents" });
+    } catch {
+      // A 401 already cleared the session inside request(); anything else
+      // (network) just falls through to the login screen with the cached
+      // apiBase pre-filled, which is the best available next step.
+      store.set({ booting: false });
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Views
+  // ---------------------------------------------------------------------
+
+  function Banner({ kind, children, onDismiss }) {
+    if (!children) return null;
+    return html`
+      <div class="banner ${kind}">
+        ${children}
+        ${onDismiss &&
+        html`<button class="subtle small" style="float:right" onClick=${onDismiss}>Dismiss</button>`}
+      </div>
+    `;
+  }
+
+  function LoginView() {
+    const [apiBase, setApiBase] = useState(loadLastApiBase());
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const wasLoggedIn = useRef(!!store.state.user);
+
+    async function submit(e) {
+      e.preventDefault();
+      setBusy(true);
+      setError(null);
+      try {
+        const base = apiBase.replace(/\/+$/, "");
+        const token = await api.login(base, username, password);
+        const exp = decodeJwtExp(token.access_token);
+        if (!exp) throw new ApiError(0, "http", "Server returned a token with no expiry.");
+        const session = { apiBase: base, token: token.access_token, exp, username };
+        saveSession(session);
+        store.set({ session });
+        const [user, schemas] = await Promise.all([api.me(), api.schemas()]);
+        store.set({ user, schemas, view: wasLoggedIn.current ? store.state.view : "documents" });
+      } catch (err) {
+        setError(err instanceof ApiError ? err.detail : String(err));
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    return html`
+      <div class="overlay">
+        <form class="card" onSubmit=${submit}>
+          <h2>${wasLoggedIn.current ? "Session expired" : "Log in"}</h2>
+          ${wasLoggedIn.current &&
+          html`<p class="field-hint">Your work below is still here — log back in to continue.</p>`}
+          <${Banner} kind="error">${error}<//>
+          <div class="field">
+            <label for="api-base">API base URL</label>
+            <input
+              id="api-base"
+              type="text"
+              value=${apiBase}
+              onInput=${(e) => setApiBase(e.currentTarget.value)}
+              autocomplete="url"
+            />
+          </div>
+          <div class="field">
+            <label for="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              value=${username}
+              onInput=${(e) => setUsername(e.currentTarget.value)}
+              autocomplete="username"
+              required
+            />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value=${password}
+              onInput=${(e) => setPassword(e.currentTarget.value)}
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <button class="primary" type="submit" disabled=${busy} style="width:100%">
+            ${busy ? "Logging in…" : "Log in"}
+          </button>
+        </form>
+      </div>
+    `;
+  }
+
+  function SessionCountdown({ session }) {
+    const [, tick] = useState(0);
+    useEffect(() => {
+      const id = setInterval(() => tick((n) => n + 1), 15_000);
+      return () => clearInterval(id);
+    }, []);
+    if (!session) return null;
+    const remainingMs = session.exp * 1000 - Date.now();
+    if (remainingMs > SESSION_LOW_WARNING_MS) return null;
+    const minutes = Math.max(0, Math.floor(remainingMs / 60_000));
+    const seconds = Math.max(0, Math.floor((remainingMs % 60_000) / 1000));
+    return html`<span class="session-countdown low"
+      >Session expires in ${minutes}:${String(seconds).padStart(2, "0")}</span
+    >`;
+  }
+
+  const NAV_ITEMS = [
+    { view: "documents", label: "Documents" },
+    { view: "api-keys", label: "API keys" },
+    { view: "account", label: "Account" },
+  ];
+
+  function Header() {
+    const { session, user, view } = useStore();
+    return html`
+      <header class="app-header">
+        <span class="brand">resume-api</span>
+        ${user &&
+        html`
+          <nav class="app-nav">
+            ${NAV_ITEMS.map(
+              (item) => html`
+                <button
+                  class=${view === item.view ? "active" : ""}
+                  onClick=${() => store.navigate(item.view)}
+                >
+                  ${item.label}
+                </button>
+              `,
+            )}
+          </nav>
+        `}
+        <div class="header-meta">
+          ${session && html`<${SessionCountdown} session=${session} />`}
+          ${user && html`<span>${user.username}</span>`}
+          ${session &&
+          html`<button
+            class="small"
+            onClick=${() => {
+              clearSession();
+              store.set({ session: null, user: null });
+            }}
+          >
+            Log out
+          </button>`}
+        </div>
+      </header>
+    `;
+  }
+
+  function statusOf(doc) {
+    return doc.public ? "public" : "private";
+  }
+
+  function DocumentListView() {
+    const { user, session } = useStore();
+    const [documents, setDocuments] = useState(null);
+    const [error, setError] = useState(null);
+
+    async function load() {
+      setError(null);
+      try {
+        const resp = await api.listDocuments();
+        const sorted = [...resp.data].sort(
+          (a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name),
+        );
+        setDocuments(sorted);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setError(err instanceof ApiError ? err.detail : String(err));
+      }
+    }
+
+    useEffect(() => {
+      if (session) load();
+    }, [session]);
+
+    const readable = useMemo(() => new Set(readableTypes(user)), [user]);
+    const writable = useMemo(() => writableTypes(user), [user]);
+
+    if (!session) return null;
+    if (error) return html`<${Banner} kind="error">${error}<//>`;
+    if (documents === null) return html`<p>Loading…</p>`;
+
+    return html`
+      <div>
+        <div class="button-row" style="justify-content:space-between; margin-bottom: var(--space-4)">
+          <h2 style="margin:0">Documents</h2>
+          ${writable.length > 0 &&
+          html`<button class="primary" onClick=${() => store.navigate("create")}>New document</button>`}
+        </div>
+        ${documents.length === 0
+          ? html`
+              <div class="empty-state">
+                ${readable.size === 0
+                  ? "You cannot read any type of document."
+                  : "You have no documents yet."}
+              </div>
+            `
+          : html`
+              <table class="reflow">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Visibility</th>
+                    <th>Revision</th>
+                    <th>Note</th>
+                    <th>Created</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${documents.map(
+                    (doc) => html`
+                      <tr key=${doc.type + "/" + doc.name}>
+                        <td data-label="Name">${doc.name}</td>
+                        <td data-label="Type"><span class="badge type-${doc.type}">${doc.type}</span></td>
+                        <td data-label="Visibility">
+                          <span class="badge ${doc.public ? "public" : ""}">${statusOf(doc)}</span>
+                        </td>
+                        <td data-label="Revision">#${doc.revision_id}</td>
+                        <td data-label="Note">${doc.revision_note || "—"}</td>
+                        <td data-label="Created">${new Date(doc.created_at).toLocaleString()}</td>
+                        <td data-label="">
+                          ${readable.has(doc.type) &&
+                          html`<button
+                            class="small"
+                            onClick=${() => store.navigate("edit", { type: doc.type, name: doc.name })}
+                          >
+                            Open
+                          </button>`}
+                        </td>
+                      </tr>
+                    `,
+                  )}
+                </tbody>
+              </table>
+            `}
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------
+  // The JSON editor. One instance per mount, created imperatively because
+  // vanilla-jsoneditor owns its own DOM subtree — schema and initial content
+  // are fixed for the life of an edit session (a caller that needs a
+  // different schema mounts a fresh instance via `key`); only `mode` is
+  // pushed to the live instance via updateProps.
+  // ---------------------------------------------------------------------
+
+  // A function rather than a shared constant: the editor takes ownership of
+  // whatever object it is handed, so every new document needs its own.
+  function newDocumentContent() {
+    return {};
+  }
+
+  function JsonEditorField({ schema, initialContent, mode, onDirty, onEditorReady }) {
+    const containerRef = useRef(null);
+    const editorRef = useRef(null);
+
+    useEffect(() => {
+      const validator = schema ? createAjvValidator({ schema }) : undefined;
+      const editor = createJSONEditor({
+        target: containerRef.current,
+        props: {
+          content: initialContent,
+          mode,
+          validator,
+          onChange: (_updated, _previous, status) => {
+            onDirty?.(status?.contentErrors ?? null);
+          },
+        },
+      });
+      editorRef.current = editor;
+      onEditorReady?.(editor);
+      return () => {
+        editor.destroy();
+        editorRef.current = null;
+      };
+      // eslint-disable-next-line
+    }, []);
+
+    useEffect(() => {
+      editorRef.current?.updateProps({ mode });
+    }, [mode]);
+
+    return html`<div ref=${containerRef} class="json-editor-host"></div>`;
+  }
+
+  function ModeToggle({ mode, onChange }) {
+    return html`
+      <button type="button" class="small subtle" onClick=${() => onChange(mode === "tree" ? "text" : "tree")}>
+        ${mode === "tree" ? "Switch to text" : "Switch to tree"}
+      </button>
+    `;
+  }
+
+  // ---------------------------------------------------------------------
+  // Create
+  // ---------------------------------------------------------------------
+
+  function CreateDocumentView() {
+    const { user, schemas } = useStore();
+    const writable = useMemo(() => writableTypes(user), [user]);
+    const [type, setType] = useState(writable[0] || "");
+    const [name, setName] = useState("");
+    const [revisionNote, setRevisionNote] = useState("");
+    const [isPublic, setIsPublic] = useState(false);
+    const [nameError, setNameError] = useState(null);
+    const [submitError, setSubmitError] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [hasValidationErrors, setHasValidationErrors] = useState(false);
+    const [mode, setMode] = useState(window.innerWidth < 720 ? "tree" : "text");
+    const editorApiRef = useRef(null);
+
+    if (writable.length === 0) {
+      return html`<${Banner} kind="error">You do not hold write access to any document type.<//>`;
+    }
+
+    async function submit(e) {
+      e.preventDefault();
+      const nameErr = validateDocumentName(name);
+      setNameError(nameErr);
+      if (nameErr) return;
+      if (!revisionNote.trim()) {
+        setSubmitError("A revision note is required.");
+        return;
+      }
+
+      let data;
+      try {
+        data = toJSONContent(editorApiRef.current.get()).json;
+      } catch (err) {
+        setSubmitError("The content is not valid JSON: " + String(err.message || err));
+        return;
+      }
+
+      if (hasValidationErrors && !confirm("This document does not validate against its schema. Save anyway?")) {
+        return;
+      }
+
+      setBusy(true);
+      setSubmitError(null);
+      try {
+        const resp = await api.upsertDocument(type, {
+          name,
+          revision_note: revisionNote,
+          public: isPublic,
+          data,
+        });
+        store.navigate("edit", { type, name: resp.name });
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setSubmitError(err instanceof ApiError ? err.detail : String(err));
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    const schema = schemas?.schemas?.[type] || null;
+
+    return html`
+      <div>
+        <h2>New document</h2>
+        <${Banner} kind="error">${submitError}<//>
+        <form onSubmit=${submit}>
+          <div class="field">
+            <label for="doc-type">Type</label>
+            <select id="doc-type" value=${type} onChange=${(e) => setType(e.currentTarget.value)}>
+              ${writable.map((t) => html`<option value=${t}>${t}</option>`)}
+            </select>
+            <div class="field-hint">Chosen here only — a document's type cannot be changed later.</div>
+          </div>
+          <div class="field">
+            <label for="doc-name">Name</label>
+            <input
+              id="doc-name"
+              type="text"
+              value=${name}
+              onInput=${(e) => {
+                setName(e.currentTarget.value);
+                setNameError(null);
+              }}
+              required
+            />
+            ${nameError && html`<div class="field-error">${nameError}</div>`}
+          </div>
+          <div class="field">
+            <label for="doc-note">Revision note</label>
+            <input
+              id="doc-note"
+              type="text"
+              value=${revisionNote}
+              onInput=${(e) => setRevisionNote(e.currentTarget.value)}
+              required
+            />
+          </div>
+          <div class="field">
+            <label style="font-weight:400">
+              <input
+                type="checkbox"
+                checked=${isPublic}
+                style="width:auto;display:inline-block;margin-right:var(--space-2)"
+                onChange=${(e) => setIsPublic(e.currentTarget.checked)}
+              />
+              Public
+            </label>
+          </div>
+          <div class="field">
+            <div class="button-row" style="justify-content:space-between">
+              <label style="margin:0">Content</label>
+              <${ModeToggle} mode=${mode} onChange=${setMode} />
+            </div>
+            <${JsonEditorField}
+              key=${type}
+              schema=${schema}
+              initialContent=${{ json: newDocumentContent() }}
+              mode=${mode}
+              onDirty=${(errors) => setHasValidationErrors(!!errors)}
+              onEditorReady=${(api) => (editorApiRef.current = api)}
+            />
+          </div>
+          <div class="button-row">
+            <button class="primary" type="submit" disabled=${busy}>${busy ? "Creating…" : "Create"}</button>
+            <button type="button" onClick=${() => store.navigate("documents")}>Cancel</button>
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------
+  // Delete — a modal that requires the document's name to be typed out.
+  // ---------------------------------------------------------------------
+
+  function DeleteModal({ name, onClose, onDeleted }) {
+    const [typed, setTyped] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState(null);
+
+    async function confirmDelete() {
+      setBusy(true);
+      setError(null);
+      try {
+        const resp = await api.deleteDocument(name);
+        onDeleted(resp);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setError(err instanceof ApiError ? err.detail : String(err));
+        setBusy(false);
+      }
+    }
+
+    return html`
+      <div class="overlay">
+        <div class="card">
+          <h2>Delete "${name}"?</h2>
+          <p>This deletes the document entirely, including every revision. This cannot be undone.</p>
+          <${Banner} kind="error">${error}<//>
+          <div class="field">
+            <label for="confirm-name">Type the document name to confirm</label>
+            <input
+              id="confirm-name"
+              type="text"
+              value=${typed}
+              onInput=${(e) => setTyped(e.currentTarget.value)}
+              autocomplete="off"
+            />
+          </div>
+          <div class="button-row" style="justify-content:flex-end">
+            <button onClick=${onClose} disabled=${busy}>Cancel</button>
+            <button class="danger" onClick=${confirmDelete} disabled=${busy || typed !== name}>
+              ${busy ? "Deleting…" : "Delete permanently"}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------
+  // Rename — a distinct action from Save, with the consequences named.
+  // ---------------------------------------------------------------------
+
+  function RenameDialog({ name, isPublic, onClose, onRenamed }) {
+    const [newName, setNewName] = useState(name);
+    const [error, setError] = useState(null);
+    const [busy, setBusy] = useState(false);
+
+    async function submit(e) {
+      e.preventDefault();
+      const nameErr = validateDocumentName(newName);
+      if (nameErr) {
+        setError(nameErr);
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      try {
+        const resp = await api.renameDocument(name, newName);
+        onRenamed(resp);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setError(err instanceof ApiError ? err.detail : String(err));
+        setBusy(false);
+      }
+    }
+
+    return html`
+      <div class="overlay">
+        <form class="card" onSubmit=${submit}>
+          <h2>Rename document</h2>
+          <p>
+            Renaming changes this document's only handle. Anything referencing it by the
+            name <strong>${name}</strong> — an MCP client's <code>resume_id</code>,
+            <code>resume_metadata_id</code> or <code>resume_skill_id</code> argument, or a
+            <code>ResumeSkill.inputs[].document</code> entry inside another document — will
+            stop resolving until it is updated to match.
+          </p>
+          ${isPublic &&
+          html`
+            <div class="banner warn">
+              This document is public. Its URL will change to
+              <code>/public/&hellip;/resume/${newName}</code>, and the site consuming the
+              old URL will 404 until it is updated — the Cloudflare cache may hold the old
+              path for up to five minutes either way.
+            </div>
+          `}
+          <${Banner} kind="error">${error}<//>
+          <div class="field">
+            <label for="new-name">New name</label>
+            <input
+              id="new-name"
+              type="text"
+              value=${newName}
+              onInput=${(e) => setNewName(e.currentTarget.value)}
+              required
+            />
+          </div>
+          <div class="button-row" style="justify-content:flex-end">
+            <button type="button" onClick=${onClose} disabled=${busy}>Cancel</button>
+            <button class="primary" type="submit" disabled=${busy || newName === name}>
+              ${busy ? "Renaming…" : "Rename"}
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------
+  // Revisions: restore and structural compare.
+  // ---------------------------------------------------------------------
+
+  function formatDiffValue(v) {
+    if (v === undefined) return html`<em class="field-hint">—</em>`;
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  }
+
+  function DiffTable({ rows }) {
+    const grouped = useMemo(() => {
+      const map = new Map();
+      for (const row of rows) {
+        const section = sectionOf(row.path);
+        if (!map.has(section)) map.set(section, []);
+        map.get(section).push(row);
+      }
+      return [...map.entries()];
+    }, [rows]);
+
+    if (rows.length === 0) return html`<p class="field-hint">No differences.</p>`;
+
+    return html`
+      <div>
+        ${grouped.map(
+          ([section, sectionRows]) => html`
+            <div key=${section} style="margin-bottom:var(--space-4)">
+              <h4 style="margin-bottom:var(--space-2)">${section}</h4>
+              <table class="reflow">
+                <thead>
+                  <tr>
+                    <th>Path</th>
+                    <th>Left</th>
+                    <th>Right</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${sectionRows.map(
+                    (row) => html`
+                      <tr key=${row.path}>
+                        <td data-label="Path">
+                          <code>${row.path}</code> <span class="badge">${row.kind}</span>
+                        </td>
+                        <td data-label="Left">${formatDiffValue(row.left)}</td>
+                        <td data-label="Right">${formatDiffValue(row.right)}</td>
+                      </tr>
+                    `,
+                  )}
+                </tbody>
+              </table>
+            </div>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  function sortKeysDeep(value) {
+    if (Array.isArray(value)) return value.map(sortKeysDeep);
+    if (value !== null && typeof value === "object") {
+      return Object.fromEntries(
+        Object.keys(value)
+          .sort()
+          .map((k) => [k, sortKeysDeep(value[k])]),
+      );
+    }
+    return value;
+  }
+
+  function prettyJson(value) {
+    return value === undefined ? "" : JSON.stringify(sortKeysDeep(value), null, 2);
+  }
+
+  function RevisionPanel({ revisions, truncated, onRestore }) {
+    const [compareLeft, setCompareLeft] = useState(null);
+    const [compareRight, setCompareRight] = useState(null);
+
+    const diffRows = useMemo(() => {
+      if (compareLeft == null || compareRight == null) return null;
+      const left = revisions.find((r) => r.revision_id === compareLeft);
+      const right = revisions.find((r) => r.revision_id === compareRight);
+      if (!left || !right) return null;
+      return diffDocuments(left.data, right.data);
+    }, [compareLeft, compareRight, revisions]);
+
+    return html`
+      <div class="card" style="margin-top:var(--space-5)">
+        <h3>Revisions</h3>
+        ${truncated &&
+        html`<p class="field-hint">
+          Showing the 50 most recent revisions; older history is not reachable.
+        </p>`}
+        <table class="reflow">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Created</th>
+              <th>Note</th>
+              <th>Public</th>
+              <th>Compare</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${revisions.map(
+              (rev) => html`
+                <tr key=${rev.revision_id}>
+                  <td data-label="#">#${rev.revision_id}</td>
+                  <td data-label="Created">${new Date(rev.created_at).toLocaleString()}</td>
+                  <td data-label="Note">${rev.revision_note || "—"}</td>
+                  <td data-label="Public">${rev.public ? "Yes" : "No"}</td>
+                  <td data-label="Compare">
+                    <label style="font-weight:400;font-size:0.8125rem;display:inline-block">
+                      <input
+                        type="radio"
+                        name="compare-left"
+                        style="width:auto"
+                        checked=${compareLeft === rev.revision_id}
+                        onChange=${() => setCompareLeft(rev.revision_id)}
+                      />
+                      L
+                    </label>
+                    <label
+                      style="font-weight:400;font-size:0.8125rem;margin-left:var(--space-2);display:inline-block"
+                    >
+                      <input
+                        type="radio"
+                        name="compare-right"
+                        style="width:auto"
+                        checked=${compareRight === rev.revision_id}
+                        onChange=${() => setCompareRight(rev.revision_id)}
+                      />
+                      R
+                    </label>
+                  </td>
+                  <td data-label="">
+                    <button class="small" onClick=${() => onRestore(rev)}>Restore</button>
+                  </td>
+                </tr>
+              `,
+            )}
+          </tbody>
+        </table>
+        ${diffRows !== null &&
+        html`
+          <div style="margin-top:var(--space-4)">
+            <h4>Comparing #${compareLeft} → #${compareRight}</h4>
+            <${DiffTable} rows=${diffRows} />
+            <details style="margin-top:var(--space-3)">
+              <summary>Raw JSON side by side</summary>
+              <div class="raw-compare">
+                <pre>${prettyJson(revisions.find((r) => r.revision_id === compareLeft)?.data)}</pre>
+                <pre>${prettyJson(revisions.find((r) => r.revision_id === compareRight)?.data)}</pre>
+              </div>
+            </details>
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------
+  // Edit
+  // ---------------------------------------------------------------------
+
+  function EditDocumentView({ type, name }) {
+    const { schemas } = useStore();
+    const [state, setState] = useState({ loading: true, error: null, revisions: null, truncated: false, current: null });
+    const [revisionNote, setRevisionNote] = useState("");
+    const [isPublic, setIsPublic] = useState(false);
+    const [restoredFrom, setRestoredFrom] = useState(null);
+    const [saveResult, setSaveResult] = useState(null);
+    const [saveError, setSaveError] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [hasValidationErrors, setHasValidationErrors] = useState(false);
+    const [showDelete, setShowDelete] = useState(false);
+    const [showRename, setShowRename] = useState(false);
+    const [mode, setMode] = useState(window.innerWidth < 720 ? "tree" : "text");
+    const editorApiRef = useRef(null);
+
+    // Two different refreshes, deliberately kept apart: the initial load (and
+    // any switch to a different document, via the `key` on the CurrentView
+    // usage below) shows a spinner and resets the whole form. A refresh after
+    // Save only needs the revisions list and the current row — reusing the
+    // spinner path there would flash the whole view empty (destroying and
+    // recreating the JSON editor along with it) and, worse, would wipe the
+    // save-outcome banner the instant it appeared, since that banner is part
+    // of the state a full reload resets.
+    async function fetchRevisions() {
+      try {
+        const resp = await api.getDocument(type, name);
+        const revisions = resp.data; // newest first
+        return { revisions, current: revisions[0] };
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return null;
+        throw err;
+      }
+    }
+
+    useEffect(() => {
+      let cancelled = false;
+      setState({ loading: true, error: null, revisions: null, truncated: false, current: null });
+      setRevisionNote("");
+      setSaveResult(null);
+      setSaveError(null);
+      setRestoredFrom(null);
+      fetchRevisions()
+        .then((result) => {
+          if (cancelled || result === null) return;
+          setIsPublic(result.current.public);
+          setState({
+            loading: false,
+            error: null,
+            revisions: result.revisions,
+            truncated: result.revisions.length === 50,
+            current: result.current,
+          });
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setState({
+            loading: false,
+            error: err instanceof ApiError ? err.detail : String(err),
+            revisions: null,
+            truncated: false,
+            current: null,
+          });
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [type, name]);
+
+    if (state.loading) return html`<p>Loading…</p>`;
+    if (state.error) return html`<${Banner} kind="error">${state.error}<//>`;
+
+    const schema = schemas?.schemas?.[type] || null;
+    const current = state.current;
+
+    function handleRestore(rev) {
+      editorApiRef.current?.update({ json: rev.data });
+      setRestoredFrom(rev.revision_id);
+      setSaveResult(null);
+    }
+
+    async function save() {
+      let data;
+      try {
+        data = toJSONContent(editorApiRef.current.get()).json;
+      } catch (err) {
+        setSaveError("The content is not valid JSON: " + String(err.message || err));
+        return;
+      }
+      if (!revisionNote.trim()) {
+        setSaveError("A revision note is required.");
+        return;
+      }
+      if (hasValidationErrors && !confirm("This document does not validate against its schema. Save anyway?")) {
+        return;
+      }
+      setBusy(true);
+      setSaveError(null);
+      try {
+        const resp = await api.upsertDocument(type, {
+          name,
+          revision_note: revisionNote,
+          public: isPublic,
+          data,
+        });
+        setSaveResult(resp);
+        setRevisionNote("");
+        setRestoredFrom(null);
+        const result = await fetchRevisions();
+        if (result) {
+          setState((s) => ({
+            ...s,
+            revisions: result.revisions,
+            truncated: result.revisions.length === 50,
+            current: result.current,
+          }));
+        }
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setSaveError(err instanceof ApiError ? err.detail : String(err));
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    return html`
+      <div>
+        <div class="button-row" style="justify-content:space-between;margin-bottom:var(--space-4)">
+          <div>
+            <h2 style="margin:0">${name}</h2>
+            <span class="badge type-${type}">${type}</span>
+            ${current.public && html`<span class="badge public">public</span>`}
+          </div>
+          <div class="button-row">
+            <button onClick=${() => setShowRename(true)}>Rename</button>
+            <button class="danger" onClick=${() => setShowDelete(true)}>Delete</button>
+            <button onClick=${() => store.navigate("documents")}>Back</button>
+          </div>
+        </div>
+
+        ${restoredFrom &&
+        html`<${Banner} kind="warn">
+          Loaded content from revision #${restoredFrom}. Nothing is saved yet — review and
+          Save to create a new revision from it.
+        <//>`}
+        ${saveResult &&
+        html`<${Banner} kind=${saveResult.status === "created" ? "success" : "info"}>
+          ${saveResult.status === "created"
+            ? `Saved as revision #${saveResult.revision_id}.`
+            : "No changes — no revision was created. (The revision note was not recorded either.)"}
+        <//>`}
+        <${Banner} kind="error">${saveError}<//>
+
+        <div class="field">
+          <label>Type</label>
+          <div class="field-hint">${type} — fixed at creation, cannot be changed.</div>
+        </div>
+        <div class="field">
+          <label for="revision-note">Revision note</label>
+          <input
+            id="revision-note"
+            type="text"
+            value=${revisionNote}
+            onInput=${(e) => setRevisionNote(e.currentTarget.value)}
+            required
+          />
+        </div>
+        <div class="field">
+          <label style="font-weight:400">
+            <input
+              type="checkbox"
+              checked=${isPublic}
+              style="width:auto;display:inline-block;margin-right:var(--space-2)"
+              onChange=${(e) => setIsPublic(e.currentTarget.checked)}
+            />
+            Public
+          </label>
+        </div>
+        <div class="field">
+          <div class="button-row" style="justify-content:space-between">
+            <label style="margin:0">Content</label>
+            <${ModeToggle} mode=${mode} onChange=${setMode} />
+          </div>
+          <${JsonEditorField}
+            schema=${schema}
+            initialContent=${{ json: current.data }}
+            mode=${mode}
+            onDirty=${(errors) => setHasValidationErrors(!!errors)}
+            onEditorReady=${(api) => (editorApiRef.current = api)}
+          />
+        </div>
+        <div class="button-row">
+          <button class="primary" onClick=${save} disabled=${busy}>${busy ? "Saving…" : "Save"}</button>
+        </div>
+
+        <${RevisionPanel}
+          revisions=${state.revisions}
+          truncated=${state.truncated}
+          onRestore=${handleRestore}
+        />
+
+        ${showDelete &&
+        html`<${DeleteModal}
+          name=${name}
+          onClose=${() => setShowDelete(false)}
+          onDeleted=${() => store.navigate("documents")}
+        />`}
+        ${showRename &&
+        html`<${RenameDialog}
+          name=${name}
+          isPublic=${current.public}
+          onClose=${() => setShowRename(false)}
+          onRenamed=${(resp) => store.navigate("edit", { type, name: resp.name })}
+        />`}
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------
+  // API keys — ranked first for mobile in §3.5: listing, checking what is
+  // about to expire, revoking one, and minting a replacement are exactly the
+  // things wanted from a phone, away from a desk.
+  // ---------------------------------------------------------------------
+
+  const EXPIRATION_OPTIONS = [
+    { label: "30 days", days: 30 },
+    { label: "90 days", days: 90 },
+    { label: "365 days", days: 365 },
+    { label: "Never expires", days: null },
+  ];
+
+  function apiKeyStatus(key) {
+    if (key.revoked_at) return "revoked";
+    if (key.expires_at && new Date(key.expires_at).getTime() <= Date.now()) return "expired";
+    return "active";
+  }
+
+  function ApiKeyRevealModal({ apiKey, secretKey, onClose }) {
+    const [saved, setSaved] = useState(false);
+    const [mode, setMode] = useState(() => clipboardMode());
+    const [copied, setCopied] = useState(false);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+      inputRef.current?.select();
+    }, []);
+
+    async function doCopy() {
+      const ok = await copyText(secretKey);
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        // The capability check said this should work; a runtime failure
+        // (permission denied, activation lost to this very dialog) still
+        // degrades to the manual-copy presentation rather than doing nothing.
+        setMode("none");
+      }
+    }
+
+    return html`
+      <div class="overlay">
+        <div class="card">
+          <h2>Save this key now</h2>
+          <p>This is the only time the secret is shown. It cannot be retrieved again.</p>
+          <div class="field">
+            <label for="new-key">${apiKey.name}</label>
+            <input
+              id="new-key"
+              ref=${inputRef}
+              type="text"
+              value=${secretKey}
+              readonly
+              style="font-family:var(--font-mono)"
+              onClick=${(e) => e.currentTarget.select()}
+            />
+            ${mode === "none"
+              ? html`<div class="field-hint">
+                  Your browser does not support copying here. Select the text above and
+                  copy it manually (Cmd/Ctrl-C, or a long-press "Copy" on mobile).
+                </div>`
+              : html`<button
+                  type="button"
+                  class="small"
+                  style="margin-top:var(--space-2)"
+                  onClick=${doCopy}
+                >
+                  ${copied ? "Copied" : "Copy"}
+                </button>`}
+          </div>
+          <label style="font-weight:400;display:flex;gap:var(--space-2);align-items:center">
+            <input
+              type="checkbox"
+              style="width:auto"
+              checked=${saved}
+              onChange=${(e) => setSaved(e.currentTarget.checked)}
+            />
+            I have saved this key
+          </label>
+          <div class="button-row" style="justify-content:flex-end;margin-top:var(--space-4)">
+            <button class="primary" onClick=${onClose} disabled=${!saved}>Done</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function CreateApiKeyForm({ user, onCreated }) {
+    const [name, setName] = useState("");
+    const [expiresInDays, setExpiresInDays] = useState("30");
+    const [scopes, setScopes] = useState([]);
+    const [error, setError] = useState(null);
+    const [busy, setBusy] = useState(false);
+
+    function toggleScope(scope) {
+      setScopes((s) => (s.includes(scope) ? s.filter((x) => x !== scope) : [...s, scope]));
+    }
+
+    async function submit(e) {
+      e.preventDefault();
+      if (scopes.length === 0) {
+        setError("Select at least one scope.");
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      try {
+        const resp = await api.createApiKey({
+          name,
+          scopes,
+          expires_in_days: expiresInDays === "null" ? null : Number(expiresInDays),
+        });
+        setName("");
+        setScopes([]);
+        onCreated(resp);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setError(err instanceof ApiError ? err.detail : String(err));
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    return html`
+      <form class="card" onSubmit=${submit} style="margin-bottom:var(--space-5)">
+        <h3 style="margin-top:0">New API key</h3>
+        <${Banner} kind="error">${error}<//>
+        <div class="field">
+          <label for="key-name">Name</label>
+          <input
+            id="key-name"
+            type="text"
+            value=${name}
+            onInput=${(e) => setName(e.currentTarget.value)}
+            required
+          />
+        </div>
+        <div class="field">
+          <label for="key-expires">Expiration</label>
+          <select
+            id="key-expires"
+            value=${expiresInDays}
+            onChange=${(e) => setExpiresInDays(e.currentTarget.value)}
+          >
+            ${EXPIRATION_OPTIONS.map(
+              (opt) => html`<option value=${opt.days === null ? "null" : opt.days}>${opt.label}</option>`,
+            )}
+          </select>
+        </div>
+        <div class="field">
+          <label>Scopes</label>
+          <div style="display:flex;flex-wrap:wrap;gap:var(--space-3)">
+            ${(user.scopes || []).map(
+              (scope) => html`
+                <label
+                  key=${scope}
+                  style="font-weight:400;display:flex;align-items:center;gap:var(--space-1)"
+                >
+                  <input
+                    type="checkbox"
+                    style="width:auto"
+                    checked=${scopes.includes(scope)}
+                    onChange=${() => toggleScope(scope)}
+                  />
+                  ${scope}
+                </label>
+              `,
+            )}
+          </div>
+        </div>
+        <button class="primary" type="submit" disabled=${busy || scopes.length === 0}>
+          ${busy ? "Creating…" : "Create key"}
+        </button>
+      </form>
+    `;
+  }
+
+  function ApiKeysView() {
+    const { user } = useStore();
+    const [keys, setKeys] = useState(null);
+    const [error, setError] = useState(null);
+    const [showInactive, setShowInactive] = useState(false);
+    const [reveal, setReveal] = useState(null);
+    const [revokeTarget, setRevokeTarget] = useState(null);
+    const [revokeBusy, setRevokeBusy] = useState(false);
+    const [revokeError, setRevokeError] = useState(null);
+
+    async function load() {
+      setError(null);
+      try {
+        setKeys(await api.listApiKeys());
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setError(err instanceof ApiError ? err.detail : String(err));
+      }
+    }
+
+    useEffect(() => {
+      load();
+    }, []);
+
+    async function doRevoke(key) {
+      setRevokeBusy(true);
+      setRevokeError(null);
+      try {
+        await api.revokeApiKey(key.id);
+        setRevokeTarget(null);
+        await load();
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setRevokeError(err instanceof ApiError ? err.detail : String(err));
+      } finally {
+        setRevokeBusy(false);
+      }
+    }
+
+    const grantable = (user?.scopes || []).length > 0;
+    if (!grantable) {
+      return html`<div class="empty-state">You do not hold any scope that can be granted to a key.</div>`;
+    }
+    if (error) return html`<${Banner} kind="error">${error}<//>`;
+    if (keys === null) return html`<p>Loading…</p>`;
+
+    const visible = keys.filter((k) => showInactive || apiKeyStatus(k) === "active");
+
+    return html`
+      <div>
+        <h2>API keys</h2>
+        <${CreateApiKeyForm}
+          user=${user}
+          onCreated=${(resp) => {
+            setReveal(resp);
+            load();
+          }}
+        />
+
+        <div class="button-row" style="justify-content:space-between;margin-bottom:var(--space-3)">
+          <h3 style="margin:0">Your keys</h3>
+          <label
+            style="font-weight:400;font-size:0.875rem;display:flex;align-items:center;gap:var(--space-2)"
+          >
+            <input
+              type="checkbox"
+              style="width:auto"
+              checked=${showInactive}
+              onChange=${(e) => setShowInactive(e.currentTarget.checked)}
+            />
+            Show expired and revoked
+          </label>
+        </div>
+
+        ${visible.length === 0
+          ? html`<div class="empty-state">No keys to show.</div>`
+          : html`
+              <table class="reflow">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Prefix</th>
+                    <th>Scopes</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Expires</th>
+                    <th>Last used</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${visible.map((key) => {
+                    const status = apiKeyStatus(key);
+                    return html`
+                      <tr key=${key.id}>
+                        <td data-label="Name">${key.name}</td>
+                        <td data-label="Prefix"><code>${key.prefix}</code></td>
+                        <td data-label="Scopes">${key.scopes.join(", ")}</td>
+                        <td data-label="Status">
+                          <span class="badge status-${status}">${status}</span>
+                        </td>
+                        <td data-label="Created">${new Date(key.created_at).toLocaleDateString()}</td>
+                        <td data-label="Expires">
+                          ${key.expires_at ? new Date(key.expires_at).toLocaleDateString() : "Never"}
+                        </td>
+                        <td data-label="Last used">
+                          ${key.last_used_at ? new Date(key.last_used_at).toLocaleString() : "Never"}
+                        </td>
+                        <td data-label="">
+                          ${status !== "revoked" &&
+                          html`<button class="small danger" onClick=${() => setRevokeTarget(key)}>
+                            Revoke
+                          </button>`}
+                        </td>
+                      </tr>
+                    `;
+                  })}
+                </tbody>
+              </table>
+            `}
+        ${reveal &&
+        html`<${ApiKeyRevealModal}
+          apiKey=${reveal.api_key}
+          secretKey=${reveal.key}
+          onClose=${() => setReveal(null)}
+        />`}
+        ${revokeTarget &&
+        html`
+          <div class="overlay">
+            <div class="card">
+              <h2>Revoke "${revokeTarget.name}"?</h2>
+              <p>
+                Anything using this key will stop working immediately. The row stays so
+                its usage history remains readable — this is not the same as deleting it.
+              </p>
+              <${Banner} kind="error">${revokeError}<//>
+              <div class="button-row" style="justify-content:flex-end">
+                <button onClick=${() => setRevokeTarget(null)} disabled=${revokeBusy}>Cancel</button>
+                <button class="danger" onClick=${() => doRevoke(revokeTarget)} disabled=${revokeBusy}>
+                  ${revokeBusy ? "Revoking…" : "Revoke"}
+                </button>
+              </div>
+            </div>
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------
+  // Account — identity, effective permissions, and the self-service
+  // password change.
+  // ---------------------------------------------------------------------
+
+  function AccountView() {
+    const { user } = useStore();
+    const [current, setCurrent] = useState("");
+    const [next, setNext] = useState("");
+    const [retype, setRetype] = useState("");
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(false);
+    const [busy, setBusy] = useState(false);
+
+    const checks = useMemo(() => passwordComplexityChecks(next), [next]);
+    const allMet = checks.every((c) => c.met);
+    const retypeMatches = retype.length > 0 && next === retype;
+
+    async function submit(e) {
+      e.preventDefault();
+      setError(null);
+      setSuccess(false);
+      if (!allMet) {
+        setError("The new password does not meet the requirements below.");
+        return;
+      }
+      if (!retypeMatches) {
+        setError("New passwords must match.");
+        return;
+      }
+      if (next === current) {
+        setError("New password must be different from the current password.");
+        return;
+      }
+      setBusy(true);
+      try {
+        await api.changePassword({
+          current_password: current,
+          new_password: next,
+          new_password_retype: retype,
+        });
+        setSuccess(true);
+        setCurrent("");
+        setNext("");
+        setRetype("");
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setError(err instanceof ApiError ? err.detail : String(err));
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    return html`
+      <div>
+        <h2>Account</h2>
+        <div class="card" style="margin-bottom:var(--space-5)">
+          <p style="margin-bottom:var(--space-2)"><strong>${user.username}</strong></p>
+          <p class="field-hint" style="margin-bottom:var(--space-1)">
+            Roles: ${(user.roles || []).join(", ") || "none"}
+          </p>
+          <p class="field-hint" style="margin-bottom:0">
+            Scopes: ${(user.scopes || []).join(", ") || "none"}
+          </p>
+        </div>
+
+        <form class="card" onSubmit=${submit}>
+          <h3 style="margin-top:0">Change password</h3>
+          <${Banner} kind="error">${error}<//>
+          <${Banner} kind="success">${success ? "Password changed." : null}<//>
+
+          <!-- Off-screen rather than absent: this is what lets a password
+               manager associate the new password with this account and
+               offer to save it. -->
+          <input
+            type="text"
+            class="visually-hidden"
+            name="username"
+            value=${user.username}
+            autocomplete="username"
+            readonly
+            tabindex="-1"
+          />
+
+          <div class="field">
+            <label for="current-password">Current password</label>
+            <input
+              id="current-password"
+              type="password"
+              value=${current}
+              onInput=${(e) => setCurrent(e.currentTarget.value)}
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <div class="field">
+            <label for="new-password">New password</label>
+            <input
+              id="new-password"
+              type="password"
+              value=${next}
+              onInput=${(e) => setNext(e.currentTarget.value)}
+              autocomplete="new-password"
+              required
+            />
+            <ul style="margin:var(--space-2) 0 0;padding-left:var(--space-4);font-size:0.8125rem">
+              ${checks.map(
+                (c) => html`
+                  <li key=${c.label} style="color:${c.met ? "var(--success)" : "var(--text-muted)"}">
+                    ${c.met ? "✓" : "—"} ${c.label}
+                  </li>
+                `,
+              )}
+            </ul>
+          </div>
+          <div class="field">
+            <label for="retype-password">Retype new password</label>
+            <input
+              id="retype-password"
+              type="password"
+              value=${retype}
+              onInput=${(e) => setRetype(e.currentTarget.value)}
+              autocomplete="new-password"
+              required
+            />
+            ${retype.length > 0 &&
+            !retypeMatches &&
+            html`<div class="field-error">Passwords do not match.</div>`}
+          </div>
+          <button class="primary" type="submit" disabled=${busy}>
+            ${busy ? "Changing…" : "Change password"}
+          </button>
+          <p class="field-hint" style="margin-top:var(--space-4)">
+            This does not sign out other sessions or revoke API keys — outstanding
+            credentials stay valid until they expire or are revoked on their own. If you
+            changed this because something may have leaked, also review your
+            <a
+              href="#"
+              onClick=${(e) => {
+                e.preventDefault();
+                store.navigate("api-keys");
+              }}
+              >API keys</a
+            >.
+          </p>
+        </form>
+      </div>
+    `;
+  }
+
+  function CurrentView() {
+    const { view, viewParams } = useStore();
+    if (view === "documents") return html`<${DocumentListView} />`;
+    if (view === "create") return html`<${CreateDocumentView} />`;
+    if (view === "edit") {
+      return html`<${EditDocumentView}
+        key=${viewParams.type + "/" + viewParams.name}
+        type=${viewParams.type}
+        name=${viewParams.name}
+      />`;
+    }
+    if (view === "api-keys") return html`<${ApiKeysView} />`;
+    if (view === "account") return html`<${AccountView} />`;
+    return null;
+  }
+
+  function App() {
+    const { booting, session } = useStore();
+    if (booting) {
+      return html`<div class="boot-splash">Loading…</div>`;
+    }
+    return html`
+      <${Header} />
+      <main class="app-main">
+        <${CurrentView} />
+      </main>
+      ${!session && html`<${LoginView} />`}
+    `;
+  }
+
+  render(html`<${App} />`, document.getElementById("app"));
+  boot();
+</script>
