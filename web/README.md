@@ -1,8 +1,9 @@
 # Web client
 
-A single-file browser UI for managing documents and API keys against this
-service. No build step, no dependencies to install — `index.html` runs
-exactly as it sits in this directory.
+A single-file browser UI for managing documents, API keys, and second
+factors (an authenticator app and backup codes) against this service. No
+build step, no dependencies to install — `index.html` runs exactly as it
+sits in this directory.
 
 This is the *browser client* sense of "client" — a front-end UI. Elsewhere in
 the `resume-mcp-api` docs, "client" also means an AI/MCP client (Claude
@@ -46,8 +47,8 @@ python3 -m http.server 5173
 
 Then open `http://localhost:5173`. `CLIENT_ALLOWED_ORIGINS` needs that
 origin, which is what `.env.example` already sets. It imports Preact, `htm`,
-and vanilla-jsoneditor from jsdelivr at pinned versions, so this needs
-network access to the CDN but nothing else.
+vanilla-jsoneditor, and qrcode-generator from jsdelivr at pinned versions,
+so this needs network access to the CDN but nothing else.
 
 **Option 2 — straight off disk.** Open `index.html` directly in a browser
 (double-click it, or `file:///path/to/web/index.html`). This needs
@@ -60,7 +61,7 @@ option 1 instead unless you have a reason not to.
 ./build.sh
 ```
 
-Produces `dist/index.html` (gitignored): the two CDN imports fetched,
+Produces `dist/index.html` (gitignored): the three CDN imports fetched,
 verified against the same integrity hashes the browser itself checks, and
 inlined by esbuild. The result is one file, roughly 1.3 MB, that works from
 `file://` with no network access at all — hand it to someone, or archive it.
@@ -93,7 +94,7 @@ to install Node to fix a typo in a label. Reach for `dist/index.html` only
 when you specifically want a single file with no runtime network dependency
 on jsdelivr — an offline demo, an air-gapped environment, or just wanting one
 fewer moving part. Both talk to the same API and behave identically; the
-build step changes nothing but how the two editor libraries are loaded.
+build step changes nothing but how the three vendored libraries are loaded.
 
 ## What's here
 
@@ -117,6 +118,12 @@ revoke, mint a replacement) is the task this client is built to be good at
 from a phone; document editing works but is honestly secondary — a touch
 keyboard was never going to make deeply nested JSON pleasant, and the editor
 defaults to tree mode below the breakpoint for exactly that reason.
+
+Entering a TOTP code and reading backup codes belong on that same short
+list — logging in from a phone is exactly where a second factor gets
+checked most often. `autocomplete="one-time-code"` is wired up on every
+code field, so iOS and Android can offer the code straight from the
+SMS/clipboard suggestion bar instead of it being typed by hand.
 
 Two platform quirks worth knowing about rather than mistaking for bugs:
 

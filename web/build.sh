@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Bundles client/index.html into a single self-contained file at
-# client/dist/index.html: the two CDN imports (htm/preact and
-# vanilla-jsoneditor) are fetched, verified against the same integrity
-# hashes the browser checks, and inlined by esbuild — so the result works
-# offline and from file:// with no network access at all.
+# client/dist/index.html: the three CDN imports (htm/preact,
+# vanilla-jsoneditor, and qrcode-generator) are fetched, verified against
+# the same integrity hashes the browser checks, and inlined by esbuild — so
+# the result works offline and from file:// with no network access at all.
 #
 # Optional. client/index.html is always runnable as-is, straight off the
 # pinned CDN — nobody has to install node to change a label. Run this only
@@ -76,8 +76,8 @@ fi
 ENTRY="$WORKDIR/entry.js"
 sed -n "$((SCRIPT_START + 1)),$((SCRIPT_END - 1))p" index.html > "$ENTRY"
 
-# Point the two remote imports at the verified local copies just fetched, so
-# esbuild's bundler can actually inline them.
+# Point the three remote imports at the verified local copies just fetched,
+# so esbuild's bundler can actually inline them.
 for idx in "${!URLS[@]}"; do
   esc_url=$(printf '%s\n' "${URLS[$idx]}" | sed 's/[&/\]/\\&/g')
   esc_path=$(printf '%s\n' "${PATHS[$idx]}" | sed 's/[&/\]/\\&/g')

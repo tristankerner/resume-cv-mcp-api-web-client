@@ -12,10 +12,12 @@
   below. Per the Fetch/HTML module-map spec, that preload fetch is verified
   against the hash, and the `import` of the same URL later in this file
   reuses the verified module-map entry rather than issuing a second,
-  unverified fetch. Both versions are pinned exactly; never bump to `@latest`.
+  unverified fetch. Every version below is pinned exactly; never bump any of
+  them to `@latest`.
 -->
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js" integrity="sha384-StNNHifqKmppGEDNqrv+YtX8PD3mhAhLtNbioQ4QxbPNqaTnktcDjsIPGjcDoiKa" crossorigin="anonymous" />
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/vanilla-jsoneditor@3.13.0/standalone.js" integrity="sha384-hK8kMRtwx7rgbr4fIFDLac8rswTKMdzaXy6RKJtKO5nP0kNg9oOZPhAy3b1mPujt" crossorigin="anonymous" />
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm" integrity="sha384-EqDLFf69Lh6X9v2yEBfmwHvEat0HVjNO4T5TbhuVMJBbag598LCa31bgX5kbZHEE" crossorigin="anonymous" />
 
 <style>
   :root {
@@ -515,6 +517,7 @@
     createAjvValidator,
     toJSONContent,
   } from "https://cdn.jsdelivr.net/npm/vanilla-jsoneditor@3.13.0/standalone.js";
+  import qrcode from "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm";
 
   // ---------------------------------------------------------------------
   // Constants
@@ -645,6 +648,20 @@
   }
 
   // ---------------------------------------------------------------------
+  // TOTP enrolment QR — rendered client-side from the otpauth:// URI the
+  // server returns. A data URL rather than injected SVG markup: no HTML to
+  // sanitize, and an <img src> needs no ref or effect to mount. Type 0 lets
+  // the library pick the smallest QR version that fits the URI.
+  // ---------------------------------------------------------------------
+
+  function otpauthQrDataUrl(otpauthUri) {
+    const qr = qrcode(0, "M");
+    qr.addData(otpauthUri);
+    qr.make();
+    return qr.createDataURL(6, 8);
+  }
+
+  // ---------------------------------------------------------------------
   // API layer
   // ---------------------------------------------------------------------
 
@@ -733,6 +750,8 @@
     async login(apiBase, username, password) {
       return request("POST", "/token", { form: { username, password }, auth: false, apiBase });
     },
+    completeMfa: (apiBase, mfaToken, code) =>
+      request("POST", "/token/mfa", { form: { mfa_token: mfaToken, code }, auth: false, apiBase }),
     me: () => request("GET", "/users/me"),
     schemas: () => request("GET", "/documents/schemas"),
     listDocuments: () => request("GET", "/documents"),
@@ -746,6 +765,11 @@
     createApiKey: (body) => request("POST", "/api-keys", { body }),
     revokeApiKey: (id) => request("DELETE", `/api-keys/${id}`),
     changePassword: (body) => request("POST", "/users/me/password", { body }),
+    mfaStatus: () => request("GET", "/users/me/mfa"),
+    enrollTotp: (body) => request("POST", "/users/me/mfa/totp", { body }),
+    activateTotp: (id, body) => request("POST", `/users/me/mfa/totp/${id}/activate`, { body }),
+    regenerateBackupCodes: (body) => request("POST", "/users/me/mfa/backup-codes", { body }),
+    removeMfa: (id, body) => request("DELETE", `/users/me/mfa/${id}`, { body }),
   };
 
   // ---------------------------------------------------------------------
@@ -952,9 +976,29 @@
     const [apiBase, setApiBase] = useState(loadLastApiBase());
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [code, setCode] = useState("");
+    // Set instead of a token, once the password step comes back with
+    // mfa_required: {apiBase, username, mfaToken, methods}. Holding the
+    // resolved apiBase/username here (not re-reading the fields above) means
+    // a change to either while the code screen is up can't send the second
+    // step somewhere the first one didn't go.
+    const [pending, setPending] = useState(null);
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
     const wasLoggedIn = useRef(!!store.state.user);
+
+    // Shared by both steps: whichever one ends with an access token finishes
+    // the same way — decode the expiry, persist the session, load the user
+    // and schemas, and land on the right view.
+    async function completeLogin(base, forUsername, token) {
+      const exp = decodeJwtExp(token.access_token);
+      if (!exp) throw new ApiError(0, "http", "Server returned a token with no expiry.");
+      const session = { apiBase: base, token: token.access_token, exp, username: forUsername };
+      saveSession(session);
+      store.set({ session });
+      const [user, schemas] = await Promise.all([api.me(), api.schemas()]);
+      store.set({ user, schemas, view: wasLoggedIn.current ? store.state.view : "documents" });
+    }
 
     async function submit(e) {
       e.preventDefault();
@@ -963,18 +1007,76 @@
       try {
         const base = apiBase.replace(/\/+$/, "");
         const token = await api.login(base, username, password);
-        const exp = decodeJwtExp(token.access_token);
-        if (!exp) throw new ApiError(0, "http", "Server returned a token with no expiry.");
-        const session = { apiBase: base, token: token.access_token, exp, username };
-        saveSession(session);
-        store.set({ session });
-        const [user, schemas] = await Promise.all([api.me(), api.schemas()]);
-        store.set({ user, schemas, view: wasLoggedIn.current ? store.state.view : "documents" });
+        if (token.mfa_required) {
+          setPending({ apiBase: base, username, mfaToken: token.mfa_token, methods: token.methods });
+          return;
+        }
+        await completeLogin(base, username, token);
       } catch (err) {
         setError(err instanceof ApiError ? err.detail : String(err));
       } finally {
         setBusy(false);
       }
+    }
+
+    async function submitCode(e) {
+      e.preventDefault();
+      setBusy(true);
+      setError(null);
+      try {
+        const token = await api.completeMfa(pending.apiBase, pending.mfaToken, code);
+        await completeLogin(pending.apiBase, pending.username, token);
+      } catch (err) {
+        // A 401 here does not clear the session — completeMfa passes
+        // auth: false, same as login — so this only ever re-shows the code
+        // screen with the error, never the "session expired" login form.
+        setError(err instanceof ApiError ? err.detail : String(err));
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    if (pending) {
+      return html`
+        <div class="overlay">
+          <form class="card" onSubmit=${submitCode}>
+            <h2>Enter your code</h2>
+            <${Banner} kind="error">${error}<//>
+            <div class="field">
+              <label for="mfa-code">Code</label>
+              <input
+                id="mfa-code"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                value=${code}
+                onInput=${(e) => setCode(e.currentTarget.value)}
+                autofocus
+                required
+              />
+              ${pending.methods.includes("backup_codes") &&
+              html`<div class="field-hint">
+                Lost your authenticator? A backup code works here too.
+              </div>`}
+            </div>
+            <button class="primary" type="submit" disabled=${busy} style="width:100%">
+              ${busy ? "Verifying…" : "Continue"}
+            </button>
+            <button
+              type="button"
+              class="subtle"
+              style="width:100%;margin-top:var(--space-2)"
+              onClick=${() => {
+                setPending(null);
+                setCode("");
+                setError(null);
+              }}
+            >
+              Back
+            </button>
+          </form>
+        </div>
+      `;
     }
 
     return html`
@@ -1043,6 +1145,7 @@
   const NAV_ITEMS = [
     { view: "documents", label: "Documents" },
     { view: "api-keys", label: "API keys" },
+    { view: "security", label: "Security" },
     { view: "account", label: "Account" },
   ];
 
@@ -2346,6 +2449,410 @@
     `;
   }
 
+  // ---------------------------------------------------------------------
+  // Security — MFA enrolment, backup codes, and removal.
+  //
+  // A shared ConfirmPasswordDialog carries the current-password check that
+  // enrolment, regeneration and removal all require (§7.2 server-side) —
+  // one dialog rather than three near-identical password fields. `extra`
+  // is an optional slot for a field a particular use needs alongside the
+  // password (only enrolment: the label).
+  // ---------------------------------------------------------------------
+
+  function mfaKindLabel(kind) {
+    return kind === "totp" ? "Authenticator app" : "Backup codes";
+  }
+
+  function ConfirmPasswordDialog({ title, description, confirmLabel = "Confirm", danger, extra, onCancel, onConfirm }) {
+    const { user } = useStore();
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState(null);
+    const [busy, setBusy] = useState(false);
+
+    async function submit(e) {
+      e.preventDefault();
+      setBusy(true);
+      setError(null);
+      try {
+        await onConfirm(password);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setError(err instanceof ApiError ? err.detail : String(err));
+        setBusy(false);
+      }
+    }
+
+    return html`
+      <div class="overlay">
+        <form class="card" onSubmit=${submit}>
+          <h2>${title}</h2>
+          ${description && html`<p>${description}</p>`}
+          <${Banner} kind="error">${error}<//>
+          ${extra || null}
+          <!-- Off-screen rather than absent, same reasoning as AccountView's
+               password form: this is what lets a password manager associate
+               the confirmation below with this account. -->
+          <input
+            type="text"
+            class="visually-hidden"
+            name="username"
+            value=${user?.username || ""}
+            autocomplete="username"
+            readonly
+            tabindex="-1"
+          />
+          <div class="field">
+            <label for="confirm-current-password">Current password</label>
+            <input
+              id="confirm-current-password"
+              type="password"
+              value=${password}
+              onInput=${(e) => setPassword(e.currentTarget.value)}
+              autocomplete="current-password"
+              required
+              autofocus
+            />
+          </div>
+          <div class="button-row" style="justify-content:flex-end">
+            <button type="button" onClick=${onCancel} disabled=${busy}>Cancel</button>
+            <button class=${danger ? "danger" : "primary"} type="submit" disabled=${busy}>
+              ${busy ? "Working…" : confirmLabel}
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
+  // The QR/secret reveal plus activation — modelled on ApiKeyRevealModal's
+  // "I have saved this" gate, since it is the same one-time-secret problem:
+  // the seed is never shown again after this. Not dismissible except by
+  // Cancel (which removes the still-pending credential) or a successful
+  // activation.
+  function ActivateTotpModal({ enrolled, onCancel, onActivated }) {
+    const [code, setCode] = useState("");
+    const [saved, setSaved] = useState(false);
+    const [error, setError] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [copyMode] = useState(() => clipboardMode());
+    const [copied, setCopied] = useState(false);
+    const qrDataUrl = useMemo(() => otpauthQrDataUrl(enrolled.otpauth_uri), [enrolled.otpauth_uri]);
+
+    async function doCopy() {
+      const ok = await copyText(enrolled.secret);
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    }
+
+    async function activate(e) {
+      e.preventDefault();
+      setBusy(true);
+      setError(null);
+      try {
+        await api.activateTotp(enrolled.credential_id, { code });
+        onActivated();
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setError(err instanceof ApiError ? err.detail : String(err));
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    return html`
+      <div class="overlay">
+        <form class="card" onSubmit=${activate}>
+          <h2>Scan this code</h2>
+          <p>Scan with your authenticator app, or enter the secret below by hand.</p>
+          <div style="text-align:center;margin-bottom:var(--space-4)">
+            <img
+              src=${qrDataUrl}
+              alt="QR code encoding the ${enrolled.label} setup link"
+              width="200"
+              height="200"
+            />
+          </div>
+          <div class="field">
+            <label for="totp-secret">Secret</label>
+            <input
+              id="totp-secret"
+              type="text"
+              readonly
+              value=${enrolled.secret}
+              style="font-family:var(--font-mono)"
+              onClick=${(e) => e.currentTarget.select()}
+            />
+            ${copyMode !== "none" &&
+            html`<button
+              type="button"
+              class="small"
+              style="margin-top:var(--space-2)"
+              onClick=${doCopy}
+            >
+              ${copied ? "Copied" : "Copy"}
+            </button>`}
+            <a href=${enrolled.otpauth_uri} class="field-hint" style="display:block;margin-top:var(--space-2)">
+              Open in an authenticator app
+            </a>
+          </div>
+          <label
+            style="font-weight:400;display:flex;gap:var(--space-2);align-items:center;margin-bottom:var(--space-3)"
+          >
+            <input
+              type="checkbox"
+              style="width:auto"
+              checked=${saved}
+              onChange=${(e) => setSaved(e.currentTarget.checked)}
+            />
+            I have saved this
+          </label>
+          <${Banner} kind="error">${error}<//>
+          <div class="field">
+            <label for="activate-code">Code from your app</label>
+            <input
+              id="activate-code"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              value=${code}
+              onInput=${(e) => setCode(e.currentTarget.value)}
+              disabled=${!saved}
+              required
+            />
+          </div>
+          <div class="button-row" style="justify-content:flex-end">
+            <button type="button" onClick=${onCancel} disabled=${busy}>Cancel</button>
+            <button class="primary" type="submit" disabled=${busy || !saved}>
+              ${busy ? "Activating…" : "Activate"}
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
+  function BackupCodesModal({ codes, onClose }) {
+    const [saved, setSaved] = useState(false);
+    const [copyMode] = useState(() => clipboardMode());
+    const [copied, setCopied] = useState(false);
+
+    async function copyAll() {
+      const ok = await copyText(codes.join("\n"));
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    }
+
+    return html`
+      <div class="overlay">
+        <div class="card">
+          <h2>Save these backup codes</h2>
+          <p>Each code works once. Store them somewhere safe — this is the only time they are shown.</p>
+          <div
+            style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2) var(--space-4);margin-bottom:var(--space-3)"
+          >
+            ${codes.map((c) => html`<code key=${c} style="text-align:center">${c}</code>`)}
+          </div>
+          <div class="button-row" style="margin-bottom:var(--space-3)">
+            ${copyMode !== "none" &&
+            html`<button type="button" class="small" onClick=${copyAll}>
+              ${copied ? "Copied" : "Copy all"}
+            </button>`}
+            <button type="button" class="small" onClick=${() => window.print()}>Print</button>
+          </div>
+          <label style="font-weight:400;display:flex;gap:var(--space-2);align-items:center">
+            <input
+              type="checkbox"
+              style="width:auto"
+              checked=${saved}
+              onChange=${(e) => setSaved(e.currentTarget.checked)}
+            />
+            I have saved these codes
+          </label>
+          <div class="button-row" style="justify-content:flex-end;margin-top:var(--space-4)">
+            <button class="primary" onClick=${onClose} disabled=${!saved}>Done</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function SecurityView() {
+    const [status, setStatus] = useState(null);
+    const [error, setError] = useState(null);
+    const [showEnroll, setShowEnroll] = useState(false);
+    const [enrollLabel, setEnrollLabel] = useState("Authenticator app");
+    // The enrollTotp response, plus the password that produced it (reused,
+    // not re-prompted, if Cancel needs to delete the still-pending row).
+    const [activating, setActivating] = useState(null);
+    const [showBackupConfirm, setShowBackupConfirm] = useState(false);
+    const [backupReveal, setBackupReveal] = useState(null);
+    const [removeTarget, setRemoveTarget] = useState(null);
+
+    async function load() {
+      setError(null);
+      try {
+        setStatus(await api.mfaStatus());
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        setError(err instanceof ApiError ? err.detail : String(err));
+      }
+    }
+
+    useEffect(() => {
+      load();
+    }, []);
+
+    async function refreshUser() {
+      // user.mfa_enrolled drives the no-second-factor warning in App(); a
+      // stale copy would keep nagging right after fixing it, or vice versa.
+      try {
+        store.set({ user: await api.me() });
+      } catch {
+        // A 401 already handled itself inside request(). Anything else just
+        // leaves the banner as it was until the next visit here.
+      }
+    }
+
+    if (error) return html`<${Banner} kind="error">${error}<//>`;
+    if (status === null) return html`<p>Loading…</p>`;
+
+    return html`
+      <div>
+        <h2>Security</h2>
+        ${status.credentials.length === 0
+          ? html`<div class="empty-state">No second factor set up yet.</div>`
+          : html`
+              <table class="reflow" style="margin-bottom:var(--space-5)">
+                <thead>
+                  <tr>
+                    <th>Label</th>
+                    <th>Method</th>
+                    <th>Added</th>
+                    <th>Last used</th>
+                    <th>Remaining</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${status.credentials.map(
+                    (cred) => html`
+                      <tr key=${cred.id}>
+                        <td data-label="Label">${cred.label}</td>
+                        <td data-label="Method"><span class="badge">${mfaKindLabel(cred.kind)}</span></td>
+                        <td data-label="Added">${new Date(cred.created_at).toLocaleDateString()}</td>
+                        <td data-label="Last used">
+                          ${cred.last_used_at ? new Date(cred.last_used_at).toLocaleString() : "Never"}
+                        </td>
+                        <td data-label="Remaining">${cred.remaining === null ? "—" : cred.remaining}</td>
+                        <td data-label="">
+                          <button class="small danger" onClick=${() => setRemoveTarget(cred)}>Remove</button>
+                        </td>
+                      </tr>
+                    `,
+                  )}
+                </tbody>
+              </table>
+            `}
+
+        <div class="button-row" style="margin-bottom:var(--space-5)">
+          <button class="primary" onClick=${() => setShowEnroll(true)}>Add an authenticator app</button>
+          <button onClick=${() => setShowBackupConfirm(true)}>
+            ${status.backup_codes_remaining === null ? "Generate backup codes" : "Regenerate backup codes"}
+          </button>
+        </div>
+
+        ${showEnroll &&
+        html`<${ConfirmPasswordDialog}
+          title="Add an authenticator app"
+          confirmLabel="Continue"
+          onCancel=${() => setShowEnroll(false)}
+          extra=${html`
+            <div class="field">
+              <label for="totp-label">Label</label>
+              <input
+                id="totp-label"
+                type="text"
+                value=${enrollLabel}
+                onInput=${(e) => setEnrollLabel(e.currentTarget.value)}
+                required
+              />
+              <div class="field-hint">
+                A name to tell this authenticator apart from any others — e.g. "Phone" or "Laptop".
+              </div>
+            </div>
+          `}
+          onConfirm=${async (password) => {
+            const result = await api.enrollTotp({ label: enrollLabel, current_password: password });
+            setShowEnroll(false);
+            setActivating({ ...result, password });
+          }}
+        />`}
+
+        ${activating &&
+        html`<${ActivateTotpModal}
+          enrolled=${activating}
+          onCancel=${async () => {
+            // Best-effort: an unactivated credential satisfies no login on
+            // its own, so leaving one behind on a failed cleanup is inert,
+            // not a security problem — not worth surfacing a second error
+            // over.
+            try {
+              await api.removeMfa(activating.credential_id, { current_password: activating.password });
+            } catch {}
+            setActivating(null);
+            load();
+          }}
+          onActivated=${() => {
+            setActivating(null);
+            load();
+            refreshUser();
+          }}
+        />`}
+
+        ${showBackupConfirm &&
+        html`<${ConfirmPasswordDialog}
+          title=${status.backup_codes_remaining === null ? "Generate backup codes" : "Regenerate backup codes"}
+          description=${status.backup_codes_remaining !== null
+            ? "This replaces your existing backup codes — the old set stops working immediately."
+            : null}
+          confirmLabel="Continue"
+          onCancel=${() => setShowBackupConfirm(false)}
+          onConfirm=${async (password) => {
+            const result = await api.regenerateBackupCodes({ current_password: password });
+            setShowBackupConfirm(false);
+            setBackupReveal(result);
+            load();
+            refreshUser();
+          }}
+        />`}
+
+        ${backupReveal &&
+        html`<${BackupCodesModal} codes=${backupReveal.codes} onClose=${() => setBackupReveal(null)} />`}
+
+        ${removeTarget &&
+        html`<${ConfirmPasswordDialog}
+          title=${`Remove "${removeTarget.label}"?`}
+          description=${status.credentials.length === 1
+            ? "This is your only second factor. Removing it means your password alone will log you in."
+            : "Anything using this method will stop working immediately."}
+          confirmLabel="Remove"
+          danger
+          onCancel=${() => setRemoveTarget(null)}
+          onConfirm=${async (password) => {
+            await api.removeMfa(removeTarget.id, { current_password: password });
+            setRemoveTarget(null);
+            load();
+            refreshUser();
+          }}
+        />`}
+      </div>
+    `;
+  }
+
   function CurrentView() {
     const { view, viewParams } = useStore();
     if (view === "documents") return html`<${DocumentListView} />`;
@@ -2358,17 +2865,40 @@
       />`;
     }
     if (view === "api-keys") return html`<${ApiKeysView} />`;
+    if (view === "security") return html`<${SecurityView} />`;
     if (view === "account") return html`<${AccountView} />`;
     return null;
   }
 
   function App() {
-    const { booting, session } = useStore();
+    const { booting, session, user } = useStore();
+    // Dismissible for the session only, deliberately not persisted — a nag
+    // that can be silenced forever is not a warning.
+    const [warningDismissed, setWarningDismissed] = useState(false);
     if (booting) {
       return html`<div class="boot-splash">Loading…</div>`;
     }
     return html`
       <${Header} />
+      ${user &&
+      !user.mfa_enrolled &&
+      !warningDismissed &&
+      html`
+        <div class="banner warn" style="margin: var(--space-3) var(--space-5) 0">
+          Your account has no second factor.
+          <a
+            href="#"
+            onClick=${(e) => {
+              e.preventDefault();
+              store.navigate("security");
+            }}
+            >Set one up</a
+          >.
+          <button class="subtle small" style="float:right" onClick=${() => setWarningDismissed(true)}>
+            Dismiss
+          </button>
+        </div>
+      `}
       <main class="app-main">
         <${CurrentView} />
       </main>
