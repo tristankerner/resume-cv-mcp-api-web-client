@@ -10,7 +10,7 @@ HTTP.
 ## What's here
 
 ```
-web/   the browser client — a single-file UI, no build step required
+web/   the browser client — Vite/React/TypeScript, built to a single HTML file
 ```
 
 `web/` is the only client today.

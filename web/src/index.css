@@ -1,0 +1,162 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Dark by default, and — for now — the only theme. `.dark` on <html> stays a
+   class rather than being folded into :root so a future light theme is a
+   token swap plus a toggle, not a rewrite; there is no toggle yet. */
+:root {
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: hsl(222.2 84% 4.9%);
+  --foreground: hsl(210 40% 98%);
+  --card: hsl(222.2 84% 4.9%);
+  --card-foreground: hsl(210 40% 98%);
+  --popover: hsl(222.2 84% 4.9%);
+  --popover-foreground: hsl(210 40% 98%);
+  --primary: hsl(210 40% 98%);
+  --primary-foreground: hsl(222.2 47.4% 11.2%);
+  --secondary: hsl(217.2 32.6% 17.5%);
+  --secondary-foreground: hsl(210 40% 98%);
+  --muted: hsl(217.2 32.6% 17.5%);
+  --muted-foreground: hsl(215 20.2% 65.1%);
+  --accent: hsl(217.2 32.6% 17.5%);
+  --accent-foreground: hsl(210 40% 98%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(210 40% 98%);
+  --success: hsl(142 71% 45%);
+  --success-foreground: hsl(144 61% 8%);
+  --warning: hsl(38 92% 50%);
+  --warning-foreground: hsl(31 74% 8%);
+  --border: hsl(217.2 32.6% 17.5%);
+  --input: hsl(217.2 32.6% 17.5%);
+  --ring: hsl(212.7 26.8% 83.9%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* The old single-file client's one breakpoint, preserved by name: tables
+     collapse to stacked cards and the JSON editor defaults to tree mode
+     below this width. 768px (Tailwind's stock `md`) was close enough to not
+     bother with, so this redefines `md:` outright rather than adding a
+     differently-named breakpoint. */
+  --breakpoint-md: 45rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body {
+    @apply bg-background text-foreground;
+    font-size: 16px;
+  }
+  body {
+    overflow-x: hidden;
+  }
+  /* iOS Safari zooms the viewport on focusing a field under 16px. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* vanilla-jsoneditor ships its own layout CSS via JS-injected <style> tags;
+   only the dark theme overlay is a real stylesheet import — see
+   features/documents/JsonEditorField.tsx. This just gives it a border/radius
+   consistent with the rest of the app. */
+.json-editor-host {
+  height: 480px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* Present in the DOM, off-screen rather than display:none — some password
+   managers skip display:none fields when deciding what to autofill/save, so
+   a hidden username field next to a password field needs this instead. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* Tables collapse to stacked cards below the 720px breakpoint — same
+   technique as the old single-file client: each cell carries a
+   data-label and the header row is hidden rather than reflowed. */
+@media (max-width: 719.98px) {
+  table.table-reflow,
+  table.table-reflow thead,
+  table.table-reflow tbody,
+  table.table-reflow tr,
+  table.table-reflow td {
+    display: block;
+    width: 100%;
+  }
+
+  table.table-reflow thead {
+    display: none;
+  }
+
+  table.table-reflow tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  table.table-reflow td {
+    border-bottom: none;
+    white-space: normal;
+    padding: 0.25rem 0.25rem;
+  }
+
+  table.table-reflow td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+}
