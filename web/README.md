@@ -162,6 +162,14 @@ and **OAuth clients** nav items, their routes, and every call in
 `src/lib/api/admin.ts`. The server enforces this regardless; the client just
 doesn't show doors that don't open. See `src/features/admin/`.
 
+Two things the server refuses that are worth knowing before they surprise
+you: creating a user, resetting a password, resetting MFA and managing OAuth
+clients all need an **interactive login** — a session from `/token`, which is
+what this client has — so none of it works with an API key. And registering
+an OAuth client defaults to **confidential** (the API issues a secret, shown
+once); turn on "Public client" only for one that cannot keep a secret, where
+PKCE binds the exchange instead.
+
 ## Mobile
 
 Responsive down to a phone: tables collapse to stacked cards and the JSON

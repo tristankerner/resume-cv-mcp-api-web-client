@@ -120,7 +120,13 @@ export function UsersView() {
                       <DropdownMenuItem variant="destructive" onSelect={() => setResetMfaTarget(user)}>
                         Reset MFA
                       </DropdownMenuItem>
-                      {status === "locked" && (
+                      {/* `user.locked`, not `status === "locked"`: a
+                          permanent lock reports its own status and is
+                          precisely the one that never lapses on its own, so
+                          gating on the temporary status left the only lock
+                          an admin has to clear by hand with no way to
+                          clear it. */}
+                      {user.locked && (
                         <DropdownMenuItem onSelect={() => setUnlockTarget(user)}>Unlock</DropdownMenuItem>
                       )}
                     </DropdownMenuContent>

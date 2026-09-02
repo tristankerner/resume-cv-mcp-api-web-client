@@ -20,7 +20,10 @@ export function RegisterClientDialog({
 }) {
   const [name, setName] = useState("");
   const [redirectUris, setRedirectUris] = useState<string[]>([""]);
-  const [isPublic, setIsPublic] = useState(true);
+  // Confidential by default, matching what the API says it hands out: with
+  // registration closed, POST /oauth-clients issues a secret unless asked not
+  // to. Turn it on for a client that cannot keep one — a native app, a CLI.
+  const [isPublic, setIsPublic] = useState(false);
   const [scope, setScope] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
