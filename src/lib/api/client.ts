@@ -15,13 +15,24 @@ export class ApiError extends Error {
   detail: string;
   // Parsed 422 field errors: {field: [msg, ...]}
   fields: Record<string, string[]> | null;
+  // Structured error bodies. Today this is only the duplicate-conflict
+  // payload — see `DuplicateConflict` in lib/api/tracking.ts — which is the
+  // one response whose `detail` is an object rather than a string.
+  payload: unknown;
 
-  constructor(status: number, kind: ApiErrorKind, detail: string, fields?: Record<string, string[]> | null) {
+  constructor(
+    status: number,
+    kind: ApiErrorKind,
+    detail: string,
+    fields?: Record<string, string[]> | null,
+    payload?: unknown,
+  ) {
     super(detail);
     this.status = status;
     this.kind = kind;
     this.detail = detail;
     this.fields = fields ?? null;
+    this.payload = payload;
   }
 }
 
@@ -92,6 +103,7 @@ export async function request<T>(
   if (!response.ok) {
     let detail = response.statusText || `HTTP ${response.status}`;
     let fields: Record<string, string[]> | null = null;
+    let payload: unknown;
     let kind: ApiErrorKind = "http";
     if (response.status === 403) kind = "forbidden";
     else if (response.status === 409) kind = "conflict";
@@ -105,11 +117,14 @@ export async function request<T>(
           .join("; ");
       } else if (typeof data.detail === "string") {
         detail = data.detail;
+      } else if (data.detail && typeof data.detail === "object") {
+        payload = data.detail;
+        if (typeof data.detail.message === "string") detail = data.detail.message;
       }
     } catch {
       // Non-JSON error body; the status text above is all there is.
     }
-    throw new ApiError(response.status, kind, detail, fields);
+    throw new ApiError(response.status, kind, detail, fields, payload);
   }
 
   if (response.status === 204) return null as T;

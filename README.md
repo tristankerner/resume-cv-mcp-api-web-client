@@ -2,9 +2,10 @@
 
 The browser client for
 [`resume-cv-mcp-api`](https://github.com/tristankerner/resume-cv-mcp-api): a
-browser UI for managing documents, API keys, second factors (an authenticator
-app and backup codes), and — for an account holding `users:admin` — user and
-OAuth client administration, against that service.
+browser UI for managing documents, application tracking (applications,
+companies, contacts), API keys, second factors (an authenticator app and
+backup codes), and — for an account holding `users:admin` — user and OAuth
+client administration, against that service.
 
 "Client" means several things across that project's docs — an AI/MCP client
 (Claude Desktop, etc.), an OAuth client, and a front-end UI. This repository
@@ -148,13 +149,17 @@ src/
   App.tsx            boot, session restore, view switch
   index.css          Tailwind v4 + shadcn theme tokens, dark by default
   lib/               API client, auth/session/scopes, documents, passwords,
-                     clipboard, QR — all pure logic, unit tested
+                     clipboard, QR, tracking (labels, files) — all pure
+                     logic, unit tested
   store/             the tiny global store, ported to TypeScript
   components/ui/     shadcn-generated primitives — don't hand-edit, regenerate
-  components/common/ Banner, ConfirmPasswordDialog, SecretReveal, EmptyState, ...
+  components/common/ Banner, ConfirmPasswordDialog, SecretReveal, EmptyState,
+                     DataTableFooter, ...
   components/layout/ AppShell, Header, Nav, SessionCountdown
-  features/          one directory per view: auth, documents, api-keys,
-                     account, security, admin
+  features/          one directory per view: auth, documents, applications,
+                     companies, contacts, tracking (shared: CompanyPicker,
+                     DuplicateWarning, HistoryPanel), api-keys, account,
+                     security, admin
 scripts/
   check-singlefile.mjs   the single-file build assertion, see above
 dist/               build output (gitignored)
@@ -181,6 +186,28 @@ an OAuth client defaults to **confidential** (the API issues a secret, shown
 once); turn on "Public client" only for one that cannot keep a secret, where
 PKCE binds the exchange instead.
 
+## Application tracking
+
+Three sections — **Applications**, **Companies**, **Contacts** — each gated on
+holding `applications:read`, `companies:read` or `contacts:read`
+respectively; a user with none of the three sees no new nav items. Writes and
+deletes are gated the same way on `*:write`/`*:delete`, same pattern as the
+admin section above: the client hides doors that don't open, and the server
+enforces it regardless.
+
+An application can carry an optional **job code** — the requisition number a
+posting or a recruiter gives. It is the one field that ties the same job
+together when it arrives twice: the list shows a `+N` badge next to a code
+that is shared, filtering by code folds away case and separators, and the
+detail page grows a **Same job code** card listing the other applications and
+who each came through. Nothing renders when a code is unique or unset.
+
+Attachments (resumes, cover letters) are sent as base64 over JSON with a
+10 MiB decoded-size cap; only `.pdf` and `.docx` are accepted, and the content
+type is resolved from the file extension rather than the browser-reported
+MIME type. The History panel on each detail page needs `audit:read` and, even
+then, only ever shows your own rows — see `resume-cv-mcp-api`'s docs for why.
+
 ## Mobile
 
 Responsive down to a phone: tables collapse to stacked cards and the JSON
@@ -190,6 +217,11 @@ breakpoint, kept by name). API key management (list, check what's expiring,
 revoke, mint a replacement) is the task this client is built to be good at
 from a phone; document editing works but is honestly secondary — a touch
 keyboard was never going to make deeply nested JSON pleasant.
+
+The application list is the other tracking screen worth using from a
+phone — checking status or logging an event after a call takes a few taps.
+Creating an application with a full job description pasted in is a desktop
+job.
 
 Entering a TOTP code and reading backup codes belong on that same short
 list — logging in from a phone is exactly where a second factor gets

@@ -5,6 +5,15 @@ export type View =
   | "documents"
   | "create"
   | "edit"
+  | "applications"
+  | "application"
+  | "application-create"
+  | "companies"
+  | "company"
+  | "company-create"
+  | "contacts"
+  | "contact"
+  | "contact-create"
   | "api-keys"
   | "security"
   | "account"
@@ -18,6 +27,10 @@ export interface DocumentSchemas {
 export interface ViewParams {
   type?: string;
   name?: string;
+  // The row a detail view is showing.
+  id?: number;
+  // Prefill for a create form, or a list filter.
+  companyId?: number;
 }
 
 export interface StoreState {

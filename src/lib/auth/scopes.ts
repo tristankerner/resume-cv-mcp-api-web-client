@@ -37,3 +37,25 @@ export function writableTypes(user: User | null | undefined): DocType[] {
 export function isAdmin(user: User | null | undefined): boolean {
   return hasScope(user, "users:admin");
 }
+
+export type TrackingEntity = "applications" | "companies" | "contacts";
+
+export function canRead(user: User | null | undefined, entity: TrackingEntity): boolean {
+  return hasScope(user, `${entity}:read`);
+}
+
+export function canWrite(user: User | null | undefined, entity: TrackingEntity): boolean {
+  return hasScope(user, `${entity}:write`);
+}
+
+export function canDelete(user: User | null | undefined, entity: TrackingEntity): boolean {
+  return hasScope(user, `${entity}:delete`);
+}
+
+export function canReadAudit(user: User | null | undefined): boolean {
+  return hasScope(user, "audit:read");
+}
+
+export function canReadAnyTracking(user: User | null | undefined): boolean {
+  return canRead(user, "applications") || canRead(user, "companies") || canRead(user, "contacts");
+}
