@@ -48,6 +48,10 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
   const [showDelete, setShowDelete] = useState(false);
   const [showRename, setShowRename] = useState(false);
   const [mode, setMode] = useState<EditorMode>(window.innerWidth < 720 ? "tree" : "text");
+  // The editor owns its content, so nothing re-renders when it changes. This
+  // counter is the change signal the revision panel needs to keep a diff
+  // against "Current" up to date; bump it wherever the content moves.
+  const [editorVersion, setEditorVersion] = useState(0);
   const editorApiRef = useRef<JsonEditor | null>(null);
 
   // Two different refreshes, deliberately kept apart: the initial load (and
@@ -114,6 +118,22 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
     editorApiRef.current?.update({ json: rev.data });
     setRestoredFrom(rev.revision_id);
     setSaveResult(null);
+    // `update` is a programmatic write and does not fire the editor's
+    // onChange, so the panel would otherwise keep diffing the old content.
+    setEditorVersion((v) => v + 1);
+  }
+
+  // What is in the editor right now, or undefined while it holds text that
+  // is not valid JSON. `save` parses separately because it has an error
+  // message to report; this one is for the revision panel's "Current" side,
+  // where invalid JSON is an ordinary transient state, not an error.
+  function currentEditorJson(): JsonValue | undefined {
+    if (!editorApiRef.current) return undefined;
+    try {
+      return toJSONContent(editorApiRef.current.get()).json as JsonValue;
+    } catch {
+      return undefined;
+    }
   }
 
   async function save() {
@@ -229,7 +249,10 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
             schema={schema}
             initialContent={{ json: current.data }}
             mode={mode}
-            onDirty={(errors) => setHasValidationErrors(!!errors)}
+            onDirty={(errors) => {
+              setHasValidationErrors(!!errors);
+              setEditorVersion((v) => v + 1);
+            }}
             onEditorReady={(api) => (editorApiRef.current = api)}
           />
         </div>
@@ -238,7 +261,14 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
         </Button>
       </div>
 
-      <RevisionPanel revisions={state.revisions!} truncated={state.truncated} onRestore={handleRestore} />
+      <RevisionPanel
+        revisions={state.revisions!}
+        truncated={state.truncated}
+        liveRevisionId={current.revision_id}
+        editorVersion={editorVersion}
+        getEditorJson={currentEditorJson}
+        onRestore={handleRestore}
+      />
 
       {showDelete && (
         <DeleteDialog
