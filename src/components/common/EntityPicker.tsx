@@ -52,6 +52,15 @@ export interface EntityPickerProps<T> {
   // this with — see the project's dependency policy — so this comment is
   // the guardrail: if a picker goes into a dialog and stops responding to
   // clicks, this is why, and `modal` is the fix.)
+  //
+  // `modal` alone is not enough: Radix layers dialog-over-popover through
+  // module-level state in @radix-ui/react-focus-scope, so the popover and
+  // the dialog must resolve to the *same* copy of it. Let react-popover
+  // drift to an older version than react-dialog and npm nests a second
+  // copy, each scope gets its own stack, and the dialog's focus trap yanks
+  // focus straight back out of this picker's input — visible, clickable,
+  // impossible to type in. Keep the @radix-ui/* versions in package.json in
+  // step; `npm ls @radix-ui/react-focus-scope` must show exactly one.
   modal?: boolean;
 }
 
@@ -75,6 +84,12 @@ export function EntityPicker<T>({
   const [items, setItems] = useState<T[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // cmdk's highlighted row, controlled. Left to cmdk it highlights the first
+  // row once and then loses the highlight for good as soon as that row drops
+  // out of the results — which is every keystroke that narrows the list — so
+  // Enter stops selecting anything. Owning it lets us re-point the highlight
+  // at the first row each time the results change.
+  const [highlight, setHighlight] = useState("");
   const debounceRef = useRef<number | undefined>(undefined);
   // Selecting a row sets `label` directly; this effect only needs to react
   // to the value changing out from under the picker (e.g. a parent
@@ -124,6 +139,21 @@ export function EntityPicker<T>({
   const trimmed = query.trim();
   const exactMatch = options.some((o) => o.opt.label.toLowerCase() === trimmed.toLowerCase());
   const canCreate = !!onCreate && !disabled && trimmed.length > 0 && !exactMatch;
+
+  // The row Enter should land on: the first result, else the "none" row, else
+  // the inline-create row. Only changes when the result set does, so arrowing
+  // around does not fight this.
+  const firstValue = options.length
+    ? String(options[0].opt.id)
+    : allowNone
+      ? "__none__"
+      : canCreate
+        ? `__create__${trimmed}`
+        : "";
+
+  useEffect(() => {
+    setHighlight(firstValue);
+  }, [firstValue]);
 
   async function createInline() {
     if (!onCreate) return;
@@ -203,7 +233,7 @@ export function EntityPicker<T>({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
-          <Command shouldFilter={false}>
+          <Command shouldFilter={false} value={highlight} onValueChange={setHighlight}>
             <CommandInput placeholder={placeholder} value={query} onValueChange={handleQueryChange} />
             <CommandList>
               <CommandEmpty>{canCreate ? null : "No results found."}</CommandEmpty>
