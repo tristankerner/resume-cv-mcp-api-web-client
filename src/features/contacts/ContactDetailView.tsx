@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { DetailList, DetailRow } from "@/components/common/DetailList";
 import { PageHeader } from "@/components/common/PageHeader";
 import {
   AlertDialog,
@@ -14,9 +15,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { CompanyPicker } from "@/features/tracking/CompanyPicker";
 import { HistoryPanel } from "@/features/tracking/HistoryPanel";
@@ -62,6 +64,14 @@ export function ContactDetailView({ id }: { id: number }) {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!contact) {
+      store.setCrumb(null);
+      return;
+    }
+    store.setCrumb([contact.last_name, contact.first_name].filter(Boolean).join(", ") || contact.email || "Contact");
+  }, [contact]);
 
   function startEdit() {
     if (!contact) return;
@@ -121,7 +131,7 @@ export function ContactDetailView({ id }: { id: number }) {
   }
 
   if (error) return <Banner kind="error">{error}</Banner>;
-  if (contact === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (contact === null) return <p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner /> Loading…</p>;
 
   const name = [contact.last_name, contact.first_name].filter(Boolean).join(", ") || contact.email || "Contact";
 
@@ -151,8 +161,8 @@ export function ContactDetailView({ id }: { id: number }) {
           <Banner kind="error">{saveError}</Banner>
           {editing ? (
             <form onSubmit={save} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Company</Label>
+              <Field>
+                <FieldLabel>Company</FieldLabel>
                 <CompanyPicker
                   value={companyId}
                   valueLabel={contact.company_name}
@@ -160,34 +170,34 @@ export function ContactDetailView({ id }: { id: number }) {
                   allowCreate
                   allowNone
                 />
-              </div>
+              </Field>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-first">First name</Label>
+                <Field>
+                  <FieldLabel htmlFor="edit-first">First name</FieldLabel>
                   <Input id="edit-first" value={firstName} onChange={(e) => setFirstName(e.currentTarget.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-last">Last name</Label>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="edit-last">Last name</FieldLabel>
                   <Input id="edit-last" value={lastName} onChange={(e) => setLastName(e.currentTarget.value)} />
-                </div>
+                </Field>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-email">Email</Label>
+                <Field>
+                  <FieldLabel htmlFor="edit-email">Email</FieldLabel>
                   <Input id="edit-email" type="email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-phone">Phone</Label>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="edit-phone">Phone</FieldLabel>
                   <Input id="edit-phone" value={phone} onChange={(e) => setPhone(e.currentTarget.value)} />
-                </div>
+                </Field>
               </div>
               {!valid && (
                 <p className="text-sm text-muted-foreground">
                   At least one of first name, last name or email is required.
                 </p>
               )}
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-rating">Rating</Label>
+              <Field>
+                <FieldLabel htmlFor="edit-rating">Rating</FieldLabel>
                 <Select value={rating} onValueChange={setRating}>
                   <SelectTrigger id="edit-rating" className="w-full">
                     <SelectValue placeholder="— none —" />
@@ -200,19 +210,19 @@ export function ContactDetailView({ id }: { id: number }) {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-description">Description</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="edit-description">Description</FieldLabel>
                 <Textarea
                   id="edit-description"
                   value={description}
                   onChange={(e) => setDescription(e.currentTarget.value)}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-note">Personal note</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="edit-note">Personal note</FieldLabel>
                 <Textarea id="edit-note" value={personalNote} onChange={(e) => setPersonalNote(e.currentTarget.value)} />
-              </div>
+              </Field>
               <div className="flex gap-3">
                 <Button type="submit" disabled={busy || !valid}>
                   {busy ? "Saving…" : "Save"}
@@ -223,44 +233,30 @@ export function ContactDetailView({ id }: { id: number }) {
               </div>
             </form>
           ) : (
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-muted-foreground">Company</dt>
-                <dd>
-                  {contact.company_id ? (
-                    <button
-                      type="button"
-                      className="text-primary underline underline-offset-4"
-                      onClick={() => store.navigate("company", { id: contact.company_id! })}
-                    >
-                      {contact.company_name}
-                    </button>
-                  ) : (
-                    "—"
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Email</dt>
-                <dd>{contact.email || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Phone</dt>
-                <dd>{contact.phone || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Rating</dt>
-                <dd>{contact.rating != null ? `${contact.rating}/10` : "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Description</dt>
-                <dd className="whitespace-pre-wrap">{contact.description || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Personal note</dt>
-                <dd className="whitespace-pre-wrap">{contact.personal_note || "—"}</dd>
-              </div>
-            </dl>
+            <DetailList>
+              <DetailRow label="Company">
+                {contact.company_id ? (
+                  <button
+                    type="button"
+                    className="text-primary underline underline-offset-4"
+                    onClick={() => store.navigate("company", { id: contact.company_id! })}
+                  >
+                    {contact.company_name}
+                  </button>
+                ) : (
+                  "—"
+                )}
+              </DetailRow>
+              <DetailRow label="Email">{contact.email || "—"}</DetailRow>
+              <DetailRow label="Phone">{contact.phone || "—"}</DetailRow>
+              <DetailRow label="Rating">{contact.rating != null ? `${contact.rating}/10` : "—"}</DetailRow>
+              <DetailRow label="Description" className="max-w-prose whitespace-pre-wrap">
+                {contact.description || "—"}
+              </DetailRow>
+              <DetailRow label="Personal note" className="max-w-prose whitespace-pre-wrap">
+                {contact.personal_note || "—"}
+              </DetailRow>
+            </DetailList>
           )}
         </CardContent>
       </Card>

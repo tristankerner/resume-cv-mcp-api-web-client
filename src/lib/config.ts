@@ -5,6 +5,8 @@ export const SERVED_BY_API_PATH = "/client";
 
 export const API_BASE_STORAGE_KEY = "resume-api-client.api-base";
 export const SESSION_STORAGE_KEY = "resume-api-client.session";
+export const SIDEBAR_STATE_STORAGE_KEY = "resume-api-client.sidebar-open";
+export const THEME_STORAGE_KEY = "resume-api-client.theme";
 
 export const DOC_TYPES = ["resume", "metadata", "skill"] as const;
 export type DocType = (typeof DOC_TYPES)[number];

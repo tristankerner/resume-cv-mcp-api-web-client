@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { Banner } from "@/components/common/Banner";
 import { ConfirmPasswordDialog } from "@/components/common/ConfirmPasswordDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ActivateTotpModal } from "@/features/security/ActivateTotpModal";
 import { BackupCodesModal } from "@/features/security/BackupCodesModal";
@@ -54,11 +56,11 @@ export function SecurityView() {
   }
 
   if (error) return <Banner kind="error">{error}</Banner>;
-  if (status === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (status === null) return <p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner /> Loading…</p>;
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-semibold">Security</h2>
+      <PageHeader title="Security" />
       {status.credentials.length === 0 ? (
         <div className="mb-5">
           <EmptyState>No second factor set up yet.</EmptyState>
@@ -111,8 +113,8 @@ export function SecurityView() {
           confirmLabel="Continue"
           onCancel={() => setShowEnroll(false)}
           extra={
-            <div className="space-y-1.5">
-              <Label htmlFor="totp-label">Label</Label>
+            <Field>
+              <FieldLabel htmlFor="totp-label">Label</FieldLabel>
               <Input
                 id="totp-label"
                 type="text"
@@ -120,11 +122,11 @@ export function SecurityView() {
                 onChange={(e) => setEnrollLabel(e.currentTarget.value)}
                 required
               />
-              <p className="text-sm text-muted-foreground">
+              <FieldDescription>
                 A name to tell this authenticator apart from any others — e.g. "Phone" or
                 "Laptop".
-              </p>
-            </div>
+              </FieldDescription>
+            </Field>
           }
           onConfirm={async (password) => {
             const result = await mfaApi.enrollTotp({ label: enrollLabel, current_password: password });

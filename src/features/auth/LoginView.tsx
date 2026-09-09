@@ -3,8 +3,8 @@ import { type FormEvent, useRef, useState } from "react";
 import { Banner } from "@/components/common/Banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import * as authApi from "@/lib/api/auth";
 import { schemas } from "@/lib/api/documents";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -87,7 +87,7 @@ export function LoginView() {
 
   if (pending) {
     return (
-      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
         <Card className="w-full max-w-sm">
           <form onSubmit={submitCode}>
             <CardHeader>
@@ -95,8 +95,8 @@ export function LoginView() {
             </CardHeader>
             <CardContent className="space-y-4">
               <Banner kind="error">{error}</Banner>
-              <div className="space-y-1.5">
-                <Label htmlFor="mfa-code">Code</Label>
+              <Field>
+                <FieldLabel htmlFor="mfa-code">Code</FieldLabel>
                 <Input
                   id="mfa-code"
                   type="text"
@@ -108,11 +108,11 @@ export function LoginView() {
                   required
                 />
                 {pending.methods.includes("backup_codes") && (
-                  <p className="text-sm text-muted-foreground">
+                  <FieldDescription>
                     Lost your authenticator? A backup code works here too.
-                  </p>
+                  </FieldDescription>
                 )}
-              </div>
+              </Field>
               <Button type="submit" disabled={busy} className="w-full">
                 {busy ? "Verifying…" : "Continue"}
               </Button>
@@ -136,7 +136,7 @@ export function LoginView() {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
       <Card className="w-full max-w-sm">
         <form onSubmit={submit}>
           <CardHeader>
@@ -149,8 +149,8 @@ export function LoginView() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Banner kind="error">{error}</Banner>
-            <div className="space-y-1.5">
-              <Label htmlFor="api-base">API base URL</Label>
+            <Field>
+              <FieldLabel htmlFor="api-base">API base URL</FieldLabel>
               <Input
                 id="api-base"
                 type="text"
@@ -158,9 +158,9 @@ export function LoginView() {
                 onChange={(e) => setApiBase(e.currentTarget.value)}
                 autoComplete="url"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="username">Username</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="username">Username</FieldLabel>
               <Input
                 id="username"
                 type="text"
@@ -169,9 +169,9 @@ export function LoginView() {
                 autoComplete="username"
                 required
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="password">Password</FieldLabel>
               <Input
                 id="password"
                 type="password"
@@ -180,7 +180,7 @@ export function LoginView() {
                 autoComplete="current-password"
                 required
               />
-            </div>
+            </Field>
             <Button type="submit" disabled={busy} className="w-full">
               {busy ? "Logging in…" : "Log in"}
             </Button>

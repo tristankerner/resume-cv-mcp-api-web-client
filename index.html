@@ -1,9 +1,27 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>resume-cv-mcp-api web client</title>
+    <script>
+      // Sets the theme class before first paint so a dark-preferring user
+      // never sees a white flash. Safe as a plain inline script with no
+      // src/hash: GET /client sends no script-src (see the CLIENT_HEADERS
+      // note in the README), and this mirrors src/lib/theme.ts's
+      // resolveTheme — kept duplicated here since this must run
+      // synchronously, before any module has loaded.
+      (function () {
+        var pref = null;
+        try {
+          pref = localStorage.getItem("resume-api-client.theme");
+        } catch (e) {}
+        var dark =
+          pref === "dark" ||
+          (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) document.documentElement.classList.add("dark");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

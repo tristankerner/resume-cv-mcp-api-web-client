@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
 
-export function EmptyState({ children }: { children: ReactNode }) {
+import { Empty, EmptyContent, EmptyDescription } from "@/components/ui/empty";
+
+export function EmptyState({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-      {children}
-    </div>
+    <Empty className="p-12">
+      <EmptyDescription>{children}</EmptyDescription>
+      {action && <EmptyContent>{action}</EmptyContent>}
+    </Empty>
   );
 }

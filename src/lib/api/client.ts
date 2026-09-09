@@ -97,6 +97,7 @@ export async function request<T>(
   if (response.status === 401 && auth) {
     clearSession();
     store.set({ session: null });
+    store.clearListState();
     throw new ApiError(401, "unauthorized", "Your session has expired. Log in again.");
   }
 

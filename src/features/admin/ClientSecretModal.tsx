@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clipboardMode, copyText } from "@/lib/clipboard";
@@ -43,8 +44,8 @@ export function ClientSecretModal({
               : "A public client has no secret — PKCE binds its exchange instead."}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-1.5">
-          <Label htmlFor="client-secret-id">Client ID</Label>
+        <Field>
+          <FieldLabel htmlFor="client-secret-id">Client ID</FieldLabel>
           <div className="flex gap-2">
             <Input id="client-secret-id" readOnly value={clientId} className="font-mono" onClick={(e) => e.currentTarget.select()} />
             {mode !== "none" && (
@@ -53,10 +54,10 @@ export function ClientSecretModal({
               </Button>
             )}
           </div>
-        </div>
+        </Field>
         {clientSecret && (
-          <div className="space-y-1.5">
-            <Label htmlFor="client-secret-value">Client secret</Label>
+          <Field>
+            <FieldLabel htmlFor="client-secret-value">Client secret</FieldLabel>
             <div className="flex gap-2">
               <Input
                 id="client-secret-value"
@@ -72,12 +73,12 @@ export function ClientSecretModal({
               )}
             </div>
             {mode === "none" && (
-              <p className="text-sm text-muted-foreground">
+              <FieldDescription>
                 Your browser does not support copying here. Select the text above and copy it
                 manually.
-              </p>
+              </FieldDescription>
             )}
-          </div>
+          </Field>
         )}
         {clientSecret && (
           <Label className="font-normal">

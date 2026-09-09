@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { Banner } from "@/components/common/Banner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { TableSkeleton } from "@/components/common/TableSkeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,7 +68,7 @@ export function UsersView() {
   }, []);
 
   if (error) return <Banner kind="error">{error}</Banner>;
-  if (users === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (users === null) return <TableSkeleton />;
 
   return (
     <div>

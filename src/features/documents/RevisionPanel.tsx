@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DiffTable } from "@/features/documents/DiffTable";
 import type { DocumentRevision } from "@/lib/api/documents";
@@ -23,6 +24,13 @@ function targetLabel(target: CompareTarget | null): string {
   return target === CURRENT ? "Current" : `#${target}`;
 }
 
+// Two independent radio groups, each scattered one input per table row
+// (an L and an R column) rather than a single contiguous list — the shape
+// shadcn's RadioGroup assumes. Radix's RadioGroup.Root requires every
+// RadioGroupItem to be its descendant, which a per-row render can't satisfy
+// without restructuring the table around two duplicate radio-group trees.
+// Native radios with HTML's own name-based grouping are the better fit
+// here; styled and labelled directly instead.
 function CompareRadios({
   target,
   left,
@@ -36,12 +44,15 @@ function CompareRadios({
   onLeft: (target: CompareTarget) => void;
   onRight: (target: CompareTarget) => void;
 }) {
+  const label = targetLabel(target);
   return (
     <>
       <label className="mr-3 inline-flex items-center gap-1 text-xs font-normal">
         <input
           type="radio"
           name="compare-left"
+          className="size-4 accent-primary"
+          aria-label={`Compare left: ${label}`}
           checked={left === target}
           onChange={() => onLeft(target)}
         />
@@ -51,6 +62,8 @@ function CompareRadios({
         <input
           type="radio"
           name="compare-right"
+          className="size-4 accent-primary"
+          aria-label={`Compare right: ${label}`}
           checked={right === target}
           onChange={() => onRight(target)}
         />
@@ -132,7 +145,7 @@ export function RevisionPanel({
                 Current
               </TableCell>
               <TableCell data-label="Created">—</TableCell>
-              <TableCell data-label="Note" className="whitespace-normal">
+              <TableCell data-label="Note" className="max-w-[40ch] truncate">
                 The content in the editor above, including unsaved edits.
               </TableCell>
               <TableCell data-label="Public">—</TableCell>
@@ -158,7 +171,7 @@ export function RevisionPanel({
                   )}
                 </TableCell>
                 <TableCell data-label="Created">{new Date(rev.created_at).toLocaleString()}</TableCell>
-                <TableCell data-label="Note" className="whitespace-normal">
+                <TableCell data-label="Note" className="max-w-[40ch] truncate" title={rev.revision_note || undefined}>
                   {rev.revision_note || "—"}
                 </TableCell>
                 <TableCell data-label="Public">{rev.public ? "Yes" : "No"}</TableCell>
@@ -193,19 +206,21 @@ export function RevisionPanel({
               Comparing {targetLabel(compareLeft)} → {targetLabel(compareRight)}
             </h4>
             <DiffTable rows={comparison.rows} />
-            <details className="mt-3">
-              <summary className="cursor-pointer text-sm text-muted-foreground">
+            <Collapsible className="mt-3">
+              <CollapsibleTrigger className="cursor-pointer text-sm text-muted-foreground underline underline-offset-4">
                 Raw JSON side by side
-              </summary>
-              <div className="mt-2 flex flex-col gap-3 md:flex-row">
-                <pre className="min-w-0 flex-1 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words max-h-[400px]">
-                  {prettyJson(comparison.left)}
-                </pre>
-                <pre className="min-w-0 flex-1 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words max-h-[400px]">
-                  {prettyJson(comparison.right)}
-                </pre>
-              </div>
-            </details>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-2 flex flex-col gap-3 md:flex-row">
+                  <pre className="min-w-0 flex-1 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words max-h-[400px]">
+                    {prettyJson(comparison.left)}
+                  </pre>
+                  <pre className="min-w-0 flex-1 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words max-h-[400px]">
+                    {prettyJson(comparison.right)}
+                  </pre>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         )}
       </CardContent>

@@ -1,15 +1,19 @@
-import { useEffect, useState } from "react";
+import { SearchIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
 import { DataTableFooter } from "@/components/common/DataTableFooter";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
+import { TableSkeleton } from "@/components/common/TableSkeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import * as applicationsApi from "@/lib/api/applications";
 import type { ApplicationSummary } from "@/lib/api/applications";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -26,15 +30,10 @@ const LIMIT = 50;
 const ALL_COMPANIES = "__all__";
 
 export function ApplicationListView() {
-  const { user } = useStore();
-  const [query, setQuery] = useState("");
-  const [jobCode, setJobCode] = useState("");
-  const [statuses, setStatuses] = useState<Set<ApplicationStatus>>(new Set());
-  const [companyFilter, setCompanyFilter] = useState(ALL_COMPANIES);
+  const { user, applicationsList } = useStore();
+  const { query, jobCode, companyFilter, submittedFrom, submittedTo, offset } = applicationsList;
+  const statuses = useMemo(() => new Set(applicationsList.statuses), [applicationsList.statuses]);
   const [companies, setCompanies] = useState<CompanySummary[]>([]);
-  const [submittedFrom, setSubmittedFrom] = useState("");
-  const [submittedTo, setSubmittedTo] = useState("");
-  const [offset, setOffset] = useState(0);
   const [result, setResult] = useState<ListEnvelope<ApplicationSummary> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +48,7 @@ export function ApplicationListView() {
     const handle = setTimeout(load, 300);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, jobCode, statuses, companyFilter, submittedFrom, submittedTo, offset]);
+  }, [query, jobCode, applicationsList.statuses, companyFilter, submittedFrom, submittedTo, offset]);
 
   async function load() {
     setError(null);
@@ -71,16 +70,6 @@ export function ApplicationListView() {
     }
   }
 
-  function toggleStatus(status: ApplicationStatus) {
-    setStatuses((prev) => {
-      const next = new Set(prev);
-      if (next.has(status)) next.delete(status);
-      else next.add(status);
-      return next;
-    });
-    setOffset(0);
-  }
-
   const filtersActive =
     query !== "" ||
     jobCode !== "" ||
@@ -90,12 +79,14 @@ export function ApplicationListView() {
     submittedTo !== "";
 
   function clearFilters() {
-    setQuery("");
-    setStatuses(new Set());
-    setCompanyFilter(ALL_COMPANIES);
-    setSubmittedFrom("");
-    setSubmittedTo("");
-    setOffset(0);
+    store.setApplicationsList({
+      query: "",
+      statuses: [],
+      companyFilter: ALL_COMPANIES,
+      submittedFrom: "",
+      submittedTo: "",
+      offset: 0,
+    });
   }
 
   return (
@@ -112,30 +103,31 @@ export function ApplicationListView() {
       <Card className="mb-4">
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-3">
-            <Input
-              className="max-w-xs"
-              placeholder="Job title or company…"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.currentTarget.value);
-                setOffset(0);
-              }}
-            />
+            <InputGroup className="max-w-xs">
+              <InputGroupAddon>
+                <SearchIcon />
+              </InputGroupAddon>
+              <InputGroupInput
+                placeholder="Job title or company…"
+                value={query}
+                onChange={(e) => {
+                  store.setApplicationsList({ query: e.currentTarget.value, offset: 0 });
+                }}
+              />
+            </InputGroup>
             <Input
               className="max-w-[12rem]"
               placeholder="Job code…"
               aria-label="Job code"
               value={jobCode}
               onChange={(e) => {
-                setJobCode(e.currentTarget.value);
-                setOffset(0);
+                store.setApplicationsList({ jobCode: e.currentTarget.value, offset: 0 });
               }}
             />
             <Select
               value={companyFilter}
               onValueChange={(v) => {
-                setCompanyFilter(v);
-                setOffset(0);
+                store.setApplicationsList({ companyFilter: v, offset: 0 });
               }}
             >
               <SelectTrigger className="w-48">
@@ -150,51 +142,72 @@ export function ApplicationListView() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-2">
-              <Input
+            <InputGroup className="w-auto flex-wrap">
+              <InputGroupInput
                 type="date"
                 aria-label="Submitted from"
+                className="w-auto flex-none"
                 value={submittedFrom}
                 onChange={(e) => {
-                  setSubmittedFrom(e.currentTarget.value);
-                  setOffset(0);
+                  store.setApplicationsList({ submittedFrom: e.currentTarget.value, offset: 0 });
                 }}
               />
-              <span className="text-muted-foreground">to</span>
-              <Input
+              <InputGroupAddon>to</InputGroupAddon>
+              <InputGroupInput
                 type="date"
                 aria-label="Submitted to"
+                className="w-auto flex-none"
                 value={submittedTo}
                 onChange={(e) => {
-                  setSubmittedTo(e.currentTarget.value);
-                  setOffset(0);
+                  store.setApplicationsList({ submittedTo: e.currentTarget.value, offset: 0 });
                 }}
               />
-            </div>
+            </InputGroup>
             {filtersActive && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 Clear filters
               </Button>
             )}
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <ToggleGroup
+            type="multiple"
+            variant="outline"
+            className="flex-wrap gap-1.5"
+            value={applicationsList.statuses}
+            onValueChange={(values) => store.setApplicationsList({ statuses: values as ApplicationStatus[], offset: 0 })}
+          >
             {APPLICATION_STATUSES.map((s) => {
               const active = statuses.has(s.value);
               return (
-                <button key={s.value} type="button" onClick={() => toggleStatus(s.value)}>
+                <ToggleGroupItem
+                  key={s.value}
+                  value={s.value}
+                  aria-label={s.label}
+                  className="h-auto border-0 bg-transparent p-0 hover:bg-transparent data-[state=on]:bg-transparent"
+                >
                   <Badge variant={active ? "default" : s.terminal ? "secondary" : "outline"}>{s.label}</Badge>
-                </button>
+                </ToggleGroupItem>
               );
             })}
-          </div>
+          </ToggleGroup>
         </CardContent>
       </Card>
 
       {error && <Banner kind="error">{error}</Banner>}
       {result === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <TableSkeleton />
       ) : result.data.length === 0 ? (
-        <EmptyState>No applications yet.</EmptyState>
+        <EmptyState
+          action={
+            canWrite(user, "applications") && (
+              <Button size="sm" onClick={() => store.navigate("application-create")}>
+                New application
+              </Button>
+            )
+          }
+        >
+          No applications yet.
+        </EmptyState>
       ) : (
         <>
           <Table className="table-reflow">
@@ -257,7 +270,12 @@ export function ApplicationListView() {
               ))}
             </TableBody>
           </Table>
-          <DataTableFooter total={result.total} limit={LIMIT} offset={offset} onOffsetChange={setOffset} />
+          <DataTableFooter
+            total={result.total}
+            limit={LIMIT}
+            offset={offset}
+            onOffsetChange={(next) => store.setApplicationsList({ offset: next })}
+          />
         </>
       )}
     </div>

@@ -1,12 +1,42 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
-import { Header } from "@/components/layout/Header";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SIDEBAR_STATE_STORAGE_KEY } from "@/lib/config";
+
+// SidebarProvider defaults to a `document.cookie` for open/closed state,
+// which is unreliable on file:// (see UI_REDESIGN_PLAN.md §6.3) — driven as
+// a controlled component backed by localStorage instead, same pattern the
+// session cache already uses.
+function loadSidebarOpen(): boolean {
+  try {
+    const stored = localStorage.getItem(SIDEBAR_STATE_STORAGE_KEY);
+    return stored === null ? true : stored === "true";
+  } catch {
+    return true;
+  }
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(loadSidebarOpen);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_STATE_STORAGE_KEY, String(open));
+    } catch {
+      // localStorage can throw in a locked-down file:// context; the
+      // sidebar just falls back to its in-memory default next load.
+    }
+  }, [open]);
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <main className="mx-auto w-full max-w-4xl flex-1 p-5">{children}</main>
-    </div>
+    <SidebarProvider open={open} onOpenChange={setOpen}>
+      <AppSidebar />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

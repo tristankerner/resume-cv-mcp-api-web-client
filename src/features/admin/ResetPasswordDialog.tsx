@@ -3,8 +3,8 @@ import { type FormEvent, useMemo, useState } from "react";
 import { Banner } from "@/components/common/Banner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import * as adminApi from "@/lib/api/admin";
 import type { AdminUser } from "@/lib/api/admin";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -66,8 +66,8 @@ export function ResetPasswordDialog({
             </DialogDescription>
           </DialogHeader>
           <Banner kind="error">{error}</Banner>
-          <div className="space-y-1.5">
-            <Label htmlFor="reset-password-new">New password</Label>
+          <Field>
+            <FieldLabel htmlFor="reset-password-new">New password</FieldLabel>
             <Input
               id="reset-password-new"
               type="password"
@@ -83,9 +83,9 @@ export function ResetPasswordDialog({
                 </li>
               ))}
             </ul>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="reset-password-retype">Retype new password</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="reset-password-retype">Retype new password</FieldLabel>
             <Input
               id="reset-password-retype"
               type="password"
@@ -94,10 +94,8 @@ export function ResetPasswordDialog({
               autoComplete="new-password"
               required
             />
-            {retype.length > 0 && !retypeMatches && (
-              <p className="text-sm text-destructive">Passwords do not match.</p>
-            )}
-          </div>
+            <FieldError>{retype.length > 0 && !retypeMatches ? "Passwords do not match." : null}</FieldError>
+          </Field>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
               Cancel

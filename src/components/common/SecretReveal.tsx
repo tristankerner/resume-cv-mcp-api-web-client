@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clipboardMode, copyText } from "@/lib/clipboard";
@@ -53,8 +54,8 @@ export function SecretReveal({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-1.5">
-          <Label htmlFor="secret-reveal-value">{label}</Label>
+        <Field>
+          <FieldLabel htmlFor="secret-reveal-value">{label}</FieldLabel>
           <Input
             id="secret-reveal-value"
             ref={inputRef}
@@ -74,7 +75,7 @@ export function SecretReveal({
               {copied ? "Copied" : "Copy"}
             </Button>
           )}
-        </div>
+        </Field>
         <Label className="font-normal">
           <Checkbox checked={saved} onCheckedChange={(v) => setSaved(v === true)} />
           I have saved this

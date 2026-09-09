@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { DetailList, DetailRow } from "@/components/common/DetailList";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import {
@@ -15,11 +16,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,6 +75,10 @@ export function ApplicationDetailView({ id }: { id: number }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  useEffect(() => {
+    store.setCrumb(application ? application.job_title || "Untitled application" : null);
+  }, [application]);
+
   async function doDelete() {
     if (!application) return;
     setDeleteBusy(true);
@@ -86,7 +95,7 @@ export function ApplicationDetailView({ id }: { id: number }) {
   }
 
   if (error) return <Banner kind="error">{error}</Banner>;
-  if (application === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (application === null) return <p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner /> Loading…</p>;
 
   return (
     <div className="space-y-5">
@@ -98,18 +107,18 @@ export function ApplicationDetailView({ id }: { id: number }) {
           </span>
         }
         actions={
-          <div className="flex gap-2">
+          <ButtonGroup>
             {!editing && canWrite(user, "applications") && (
               <Button variant="outline" onClick={() => setEditing(true)}>
                 Edit
               </Button>
             )}
             {canDelete(user, "applications") && (
-              <Button variant="destructive" onClick={() => setShowDelete(true)}>
+              <Button variant="outline" className="text-destructive" onClick={() => setShowDelete(true)}>
                 Delete
               </Button>
             )}
-          </div>
+          </ButtonGroup>
         }
       />
 
@@ -351,62 +360,62 @@ function DetailsCard({
         <Banner kind="error">{error}</Banner>
         {editing ? (
           <form onSubmit={save} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Company</Label>
+            <Field>
+              <FieldLabel>Company</FieldLabel>
               <CompanyPicker
                 value={companyId}
                 valueLabel={application.company_name}
                 onChange={(companyIdValue) => setCompanyId(companyIdValue)}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-app-title">Job title</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-app-title">Job title</FieldLabel>
               <Input id="edit-app-title" value={jobTitle} onChange={(e) => setJobTitle(e.currentTarget.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-app-code">Job code</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-app-code">Job code</FieldLabel>
               <Input
                 id="edit-app-code"
                 value={jobCode}
                 onChange={(e) => setJobCode(e.currentTarget.value)}
                 placeholder="REQ-12345"
               />
-              <p className="text-xs text-muted-foreground">
+              <FieldDescription>
                 The requisition code, if the posting or recruiter gives one. Matching ignores
                 case and separators, so there is no need to tidy it up.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-app-url">URL</Label>
+              </FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-app-url">URL</FieldLabel>
               <Input id="edit-app-url" type="url" value={url} onChange={(e) => setUrl(e.currentTarget.value)} />
-            </div>
+            </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-app-source">Source</Label>
+              <Field>
+                <FieldLabel htmlFor="edit-app-source">Source</FieldLabel>
                 <Input id="edit-app-source" value={source} onChange={(e) => setSource(e.currentTarget.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-app-system">System</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="edit-app-system">System</FieldLabel>
                 <Input id="edit-app-system" value={system} onChange={(e) => setSystem(e.currentTarget.value)} />
-              </div>
+              </Field>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-app-date">Date submitted</Label>
+            <Field>
+              <FieldLabel htmlFor="edit-app-date">Date submitted</FieldLabel>
               <Input
                 id="edit-app-date"
                 type="date"
                 value={dateSubmitted}
                 onChange={(e) => setDateSubmitted(e.currentTarget.value)}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-app-resume-label">Resume label</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-app-resume-label">Resume label</FieldLabel>
               <Input
                 id="edit-app-resume-label"
                 value={resumeLabel}
                 onChange={(e) => setResumeLabel(e.currentTarget.value)}
               />
-            </div>
+            </Field>
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-sm font-medium">Document references</p>
               <p className="text-sm text-muted-foreground">
@@ -452,23 +461,23 @@ function DetailsCard({
                 />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-app-prompt">Initial prompt text</Label>
+            <Field>
+              <FieldLabel htmlFor="edit-app-prompt">Initial prompt text</FieldLabel>
               <Textarea
                 id="edit-app-prompt"
                 value={initialPromptText}
                 onChange={(e) => setInitialPromptText(e.currentTarget.value)}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-app-description">Job description</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-app-description">Job description</FieldLabel>
               <Textarea
                 id="edit-app-description"
                 className="min-h-40"
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.currentTarget.value)}
               />
-            </div>
+            </Field>
             <div className="flex items-center justify-between">
               <Label htmlFor="edit-app-manual" className="mb-0">
                 Manually modified
@@ -476,14 +485,14 @@ function DetailsCard({
               <Switch id="edit-app-manual" checked={manuallyModified} onCheckedChange={setManuallyModified} />
             </div>
             {manuallyModified && (
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-app-mod-note">Modification note</Label>
+              <Field>
+                <FieldLabel htmlFor="edit-app-mod-note">Modification note</FieldLabel>
                 <Textarea
                   id="edit-app-mod-note"
                   value={modificationNote}
                   onChange={(e) => setModificationNote(e.currentTarget.value)}
                 />
-              </div>
+              </Field>
             )}
             <div className="flex gap-3">
               <Button type="submit" disabled={busy || companyId === null}>
@@ -495,104 +504,74 @@ function DetailsCard({
             </div>
           </form>
         ) : (
-          <dl className="space-y-2 text-sm">
-            <div>
-              <dt className="text-muted-foreground">Company</dt>
-              <dd>
-                <button
-                  type="button"
+          <DetailList>
+            <DetailRow label="Company">
+              <button
+                type="button"
+                className="text-primary underline underline-offset-4"
+                onClick={() => store.navigate("company", { id: application.company_id })}
+              >
+                {application.company_name}
+              </button>
+            </DetailRow>
+            <DetailRow label="Job code">
+              {application.job_code ? (
+                <span className="flex flex-wrap items-center gap-2">
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                    {application.job_code}
+                  </code>
+                  {application.job_code_match_count > 0 && (
+                    <Badge variant="warning">
+                      on {application.job_code_match_count + 1} applications
+                    </Badge>
+                  )}
+                </span>
+              ) : (
+                "—"
+              )}
+            </DetailRow>
+            <DetailRow label="URL">
+              {safeHref(application.url) ? (
+                <a
+                  href={safeHref(application.url)}
+                  target="_blank"
+                  rel="noreferrer noopener"
                   className="text-primary underline underline-offset-4"
-                  onClick={() => store.navigate("company", { id: application.company_id })}
                 >
-                  {application.company_name}
-                </button>
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Job code</dt>
-              <dd>
-                {application.job_code ? (
-                  <span className="flex flex-wrap items-center gap-2">
-                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                      {application.job_code}
-                    </code>
-                    {application.job_code_match_count > 0 && (
-                      <Badge variant="warning">
-                        on {application.job_code_match_count + 1} applications
-                      </Badge>
-                    )}
-                  </span>
-                ) : (
-                  "—"
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">URL</dt>
-              <dd>
-                {safeHref(application.url) ? (
-                  <a
-                    href={safeHref(application.url)}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="text-primary underline underline-offset-4"
-                  >
-                    {application.url}
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Source</dt>
-              <dd>{application.source || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">System</dt>
-              <dd>{application.system || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Date submitted</dt>
-              <dd>{application.date_submitted || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Status</dt>
-              <dd>
-                <Badge variant={applicationStatusVariant(application.status)}>{application.status_label}</Badge>
-                <span className="ml-2 text-xs text-muted-foreground">Set by the most recent event.</span>
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Documents</dt>
-              <dd className="space-y-1">
-                <DocumentRefLine label="Resume" docType="resume" ref={application.resume_document} />
-                <DocumentRefLine label="Metadata" docType="metadata" ref={application.metadata_document} />
-                <DocumentRefLine label="Skill" docType="skill" ref={application.skill_document} />
-                {application.resume_label && (
-                  <p className="text-muted-foreground">{application.resume_label}</p>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Initial prompt text</dt>
-              <dd className="whitespace-pre-wrap">{application.initial_prompt_text || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Job description</dt>
-              <dd className="whitespace-pre-wrap">{application.job_description || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Manually modified</dt>
-              <dd>{application.manually_modified ? "Yes" : "No"}</dd>
-            </div>
+                  {application.url}
+                </a>
+              ) : (
+                "—"
+              )}
+            </DetailRow>
+            <DetailRow label="Source">{application.source || "—"}</DetailRow>
+            <DetailRow label="System">{application.system || "—"}</DetailRow>
+            <DetailRow label="Date submitted">{application.date_submitted || "—"}</DetailRow>
+            <DetailRow label="Status">
+              <Badge variant={applicationStatusVariant(application.status)}>{application.status_label}</Badge>
+              <span className="ml-2 text-xs text-muted-foreground">Set by the most recent event.</span>
+            </DetailRow>
+            <DetailRow label="Documents" className="space-y-1">
+              <DocumentRefLine label="Resume" docType="resume" ref={application.resume_document} />
+              <DocumentRefLine label="Metadata" docType="metadata" ref={application.metadata_document} />
+              <DocumentRefLine label="Skill" docType="skill" ref={application.skill_document} />
+              {application.resume_label && (
+                <p className="text-muted-foreground">{application.resume_label}</p>
+              )}
+            </DetailRow>
+            <DetailRow label="Initial prompt text" className="max-w-prose whitespace-pre-wrap">
+              {application.initial_prompt_text || "—"}
+            </DetailRow>
+            <DetailRow label="Job description" className="max-w-prose whitespace-pre-wrap">
+              {application.job_description || "—"}
+            </DetailRow>
+            <DetailRow label="Manually modified">{application.manually_modified ? "Yes" : "No"}</DetailRow>
             {application.manually_modified && (
-              <div>
-                <dt className="text-muted-foreground">Modification note</dt>
-                <dd className="whitespace-pre-wrap">{application.modification_note || "—"}</dd>
-              </div>
+              <DetailRow label="Modification note" className="max-w-prose whitespace-pre-wrap">
+                {application.modification_note || "—"}
+              </DetailRow>
             )}
-          </dl>
+          </DetailList>
         )}
       </CardContent>
     </Card>
@@ -653,12 +632,14 @@ function EventsCard({
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader>
         <CardTitle>Events</CardTitle>
         {writable && (
-          <Button size="sm" variant="outline" onClick={() => setShowAdd(true)}>
-            Add event
-          </Button>
+          <CardAction>
+            <Button size="sm" variant="outline" onClick={() => setShowAdd(true)}>
+              Add event
+            </Button>
+          </CardAction>
         )}
       </CardHeader>
       <CardContent>
@@ -667,26 +648,34 @@ function EventsCard({
         ) : (
           <ul className="space-y-3">
             {application.events.map((event) => (
-              <li key={event.id} className="rounded-md border p-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  {event.status && (
-                    <Badge variant={applicationStatusVariant(event.status)}>{event.status_label}</Badge>
-                  )}
-                  <span className="text-muted-foreground">{new Date(event.occurred_at).toLocaleString()}</span>
-                  {event.rating != null && <span className="text-muted-foreground">{event.rating}/10</span>}
-                  {event.contact_name && <span className="text-muted-foreground">{event.contact_name}</span>}
+              <li key={event.id}>
+                <Item variant="outline">
+                  <ItemContent>
+                    <ItemTitle className="font-normal">
+                      {event.status && (
+                        <Badge variant={applicationStatusVariant(event.status)}>{event.status_label}</Badge>
+                      )}
+                      <span className="text-muted-foreground">{new Date(event.occurred_at).toLocaleString()}</span>
+                      {event.rating != null && <span className="text-muted-foreground">{event.rating}/10</span>}
+                      {event.contact_name && <span className="text-muted-foreground">{event.contact_name}</span>}
+                    </ItemTitle>
+                    {event.description && (
+                      <ItemDescription className="whitespace-pre-wrap">{event.description}</ItemDescription>
+                    )}
+                  </ItemContent>
                   {writable && (
-                    <span className="ml-auto flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setEditTarget(event)}>
-                        Edit
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(event)}>
-                        Delete
-                      </Button>
-                    </span>
+                    <ItemActions>
+                      <ButtonGroup>
+                        <Button size="sm" variant="outline" onClick={() => setEditTarget(event)}>
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setDeleteTarget(event)}>
+                          Delete
+                        </Button>
+                      </ButtonGroup>
+                    </ItemActions>
                   )}
-                </div>
-                {event.description && <p className="mt-2 whitespace-pre-wrap">{event.description}</p>}
+                </Item>
               </li>
             ))}
           </ul>
@@ -795,8 +784,8 @@ function EventDialog({
             <DialogTitle>{initial ? "Edit event" : "Add event"}</DialogTitle>
           </DialogHeader>
           <Banner kind="error">{error}</Banner>
-          <div className="space-y-1.5">
-            <Label htmlFor="event-status">Status</Label>
+          <Field>
+            <FieldLabel htmlFor="event-status">Status</FieldLabel>
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger id="event-status" className="w-full">
                 <SelectValue />
@@ -810,18 +799,18 @@ function EventDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="event-occurred">Occurred at</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="event-occurred">Occurred at</FieldLabel>
             <Input
               id="event-occurred"
               type="datetime-local"
               value={occurredAt}
               onChange={(e) => setOccurredAt(e.currentTarget.value)}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="event-contact">Contact</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="event-contact">Contact</FieldLabel>
             <Select value={contactId} onValueChange={setContactId}>
               <SelectTrigger id="event-contact" className="w-full">
                 <SelectValue />
@@ -835,9 +824,9 @@ function EventDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="event-rating">Rating</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="event-rating">Rating</FieldLabel>
             <Select value={rating} onValueChange={setRating}>
               <SelectTrigger id="event-rating" className="w-full">
                 <SelectValue />
@@ -851,15 +840,15 @@ function EventDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="event-description">Description</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="event-description">Description</FieldLabel>
             <Textarea
               id="event-description"
               value={description}
               onChange={(e) => setDescription(e.currentTarget.value)}
             />
-          </div>
+          </Field>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
               Cancel
@@ -978,15 +967,17 @@ function AttachmentsCard({
                   </TableCell>
                   <TableCell data-label="Size">{formatBytes(a.byte_size)}</TableCell>
                   <TableCell data-label="Uploaded">{new Date(a.created_at).toLocaleString()}</TableCell>
-                  <TableCell data-label="" className="space-x-2">
-                    <Button size="sm" variant="outline" onClick={() => download(a)}>
-                      Download
-                    </Button>
-                    {canDelete(user, "applications") && (
-                      <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(a)}>
-                        Delete
+                  <TableCell data-label="">
+                    <ButtonGroup>
+                      <Button size="sm" variant="outline" onClick={() => download(a)}>
+                        Download
                       </Button>
-                    )}
+                      {canDelete(user, "applications") && (
+                        <Button size="sm" variant="outline" onClick={() => setDeleteTarget(a)}>
+                          Delete
+                        </Button>
+                      )}
+                    </ButtonGroup>
                   </TableCell>
                 </TableRow>
               ))}
@@ -995,8 +986,8 @@ function AttachmentsCard({
         )}
         {writable && (
           <div className="flex flex-wrap items-end gap-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="attachment-kind">Kind</Label>
+            <Field>
+              <FieldLabel htmlFor="attachment-kind">Kind</FieldLabel>
               <Select value={kind} onValueChange={(v) => setKind(v as AttachmentKind)}>
                 <SelectTrigger id="attachment-kind" className="w-40">
                   <SelectValue />
@@ -1009,9 +1000,9 @@ function AttachmentsCard({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="attachment-file">File</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="attachment-file">File</FieldLabel>
               <Input
                 id="attachment-file"
                 type="file"
@@ -1023,7 +1014,7 @@ function AttachmentsCard({
                   if (file) upload(file);
                 }}
               />
-            </div>
+            </Field>
           </div>
         )}
       </CardContent>

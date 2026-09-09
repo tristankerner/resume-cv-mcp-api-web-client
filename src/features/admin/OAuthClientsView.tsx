@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { Banner } from "@/components/common/Banner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { TableSkeleton } from "@/components/common/TableSkeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,7 +63,7 @@ export function OAuthClientsView() {
   }
 
   if (error) return <Banner kind="error">{error}</Banner>;
-  if (clients === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (clients === null) return <TableSkeleton />;
 
   return (
     <div>

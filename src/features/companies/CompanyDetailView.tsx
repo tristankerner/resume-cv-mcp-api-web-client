@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { DetailList, DetailRow } from "@/components/common/DetailList";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import {
@@ -17,9 +18,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { CompanyPicker } from "@/features/tracking/CompanyPicker";
@@ -55,8 +58,12 @@ export function CompanyDetailView({ id }: { id: number }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  useEffect(() => {
+    store.setCrumb(company ? company.name : null);
+  }, [company]);
+
   if (error) return <Banner kind="error">{error}</Banner>;
-  if (company === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (company === null) return <p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner /> Loading…</p>;
 
   return (
     <div className="space-y-5">
@@ -222,35 +229,35 @@ function DetailsCard({
             }}
             className="space-y-4"
           >
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-name">Name</Label>
+            <Field>
+              <FieldLabel htmlFor="edit-name">Name</FieldLabel>
               <Input id="edit-name" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-website">Website</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-website">Website</FieldLabel>
               <Input
                 id="edit-website"
                 type="url"
                 value={website}
                 onChange={(e) => setWebsite(e.currentTarget.value)}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-description">Description</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-description">Description</FieldLabel>
               <Textarea
                 id="edit-description"
                 value={description}
                 onChange={(e) => setDescription(e.currentTarget.value)}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-note">Personal note</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-note">Personal note</FieldLabel>
               <Textarea
                 id="edit-note"
                 value={personalNote}
                 onChange={(e) => setPersonalNote(e.currentTarget.value)}
               />
-            </div>
+            </Field>
             <div className="flex gap-3">
               <Button type="submit" disabled={busy || !name.trim()}>
                 {busy ? "Saving…" : "Save"}
@@ -261,33 +268,28 @@ function DetailsCard({
             </div>
           </form>
         ) : (
-          <dl className="space-y-2 text-sm">
-            <div>
-              <dt className="text-muted-foreground">Website</dt>
-              <dd>
-                {safeHref(company.website) ? (
-                  <a
-                    href={safeHref(company.website)}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="text-primary underline underline-offset-4"
-                  >
-                    {company.website}
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Description</dt>
-              <dd className="whitespace-pre-wrap">{company.description || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Personal note</dt>
-              <dd className="whitespace-pre-wrap">{company.personal_note || "—"}</dd>
-            </div>
-          </dl>
+          <DetailList>
+            <DetailRow label="Website">
+              {safeHref(company.website) ? (
+                <a
+                  href={safeHref(company.website)}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-primary underline underline-offset-4"
+                >
+                  {company.website}
+                </a>
+              ) : (
+                "—"
+              )}
+            </DetailRow>
+            <DetailRow label="Description" className="max-w-prose whitespace-pre-wrap">
+              {company.description || "—"}
+            </DetailRow>
+            <DetailRow label="Personal note" className="max-w-prose whitespace-pre-wrap">
+              {company.personal_note || "—"}
+            </DetailRow>
+          </DetailList>
         )}
       </CardContent>
     </Card>
@@ -360,16 +362,22 @@ function RelationshipsCard({ company, onChanged }: { company: CompanyDetail; onC
               const direction = rel.from_company_id === company.id ? "from" : "to";
               const otherName = direction === "from" ? rel.to_company_name : rel.from_company_name;
               return (
-                <li key={rel.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2">
-                  <div>
-                    <span>{relationshipLabel(rel.type, direction, otherName)}</span>
-                    {rel.note && <span className="ml-2 text-muted-foreground">{rel.note}</span>}
-                  </div>
-                  {canDelete(user, "companies") && (
-                    <Button size="sm" variant="ghost" onClick={() => setRemoveTarget(rel)}>
-                      Remove
-                    </Button>
-                  )}
+                <li key={rel.id}>
+                  <Item variant="outline" size="sm">
+                    <ItemContent>
+                      <ItemTitle className="font-normal">
+                        {relationshipLabel(rel.type, direction, otherName)}
+                      </ItemTitle>
+                      {rel.note && <ItemDescription>{rel.note}</ItemDescription>}
+                    </ItemContent>
+                    {canDelete(user, "companies") && (
+                      <ItemActions>
+                        <Button size="sm" variant="ghost" onClick={() => setRemoveTarget(rel)}>
+                          Remove
+                        </Button>
+                      </ItemActions>
+                    )}
+                  </Item>
                 </li>
               );
             })}
@@ -384,12 +392,12 @@ function RelationshipsCard({ company, onChanged }: { company: CompanyDetail; onC
               <DialogTitle>Add relationship</DialogTitle>
             </DialogHeader>
             <Banner kind="error">{error}</Banner>
-            <div className="space-y-1.5">
-              <Label>Company</Label>
+            <Field>
+              <FieldLabel>Company</FieldLabel>
               <CompanyPicker value={toCompanyId} onChange={(id) => setToCompanyId(id)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="rel-type">Relationship</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="rel-type">Relationship</FieldLabel>
               <Select value={type} onValueChange={(v) => setType(v as CompanyRelationshipType)}>
                 <SelectTrigger id="rel-type" className="w-full">
                   <SelectValue />
@@ -402,11 +410,11 @@ function RelationshipsCard({ company, onChanged }: { company: CompanyDetail; onC
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="rel-note">Note</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="rel-note">Note</FieldLabel>
               <Input id="rel-note" value={note} onChange={(e) => setNote(e.currentTarget.value)} />
-            </div>
+            </Field>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowAdd(false)} disabled={busy}>
                 Cancel
@@ -597,12 +605,12 @@ function StackCard({ company, onChanged }: { company: CompanyDetail; onChanged: 
             }}
             className="flex flex-wrap items-end gap-2"
           >
-            <div className="space-y-1.5">
-              <Label htmlFor="stack-name">Name</Label>
+            <Field>
+              <FieldLabel htmlFor="stack-name">Name</FieldLabel>
               <Input id="stack-name" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="stack-type">Type</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="stack-type">Type</FieldLabel>
               <Select value={type} onValueChange={(v) => setType(v as StackItemType)}>
                 <SelectTrigger id="stack-type" className="w-44">
                   <SelectValue />
@@ -615,15 +623,15 @@ function StackCard({ company, onChanged }: { company: CompanyDetail; onChanged: 
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="min-w-40 flex-1 space-y-1.5">
-              <Label htmlFor="stack-description">Description</Label>
+            </Field>
+            <Field className="min-w-40 flex-1">
+              <FieldLabel htmlFor="stack-description">Description</FieldLabel>
               <Input
                 id="stack-description"
                 value={description}
                 onChange={(e) => setDescription(e.currentTarget.value)}
               />
-            </div>
+            </Field>
             <Button type="submit" disabled={busy || !name.trim()}>
               {busy ? "Adding…" : "Add"}
             </Button>
@@ -644,17 +652,17 @@ function StackCard({ company, onChanged }: { company: CompanyDetail; onChanged: 
               <DialogTitle>Edit stack item</DialogTitle>
             </DialogHeader>
             <Banner kind="error">{editError}</Banner>
-            <div className="space-y-1.5">
-              <Label htmlFor="stack-edit-name">Name</Label>
+            <Field>
+              <FieldLabel htmlFor="stack-edit-name">Name</FieldLabel>
               <Input
                 id="stack-edit-name"
                 value={editName}
                 onChange={(e) => setEditName(e.currentTarget.value)}
                 required
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="stack-edit-type">Type</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="stack-edit-type">Type</FieldLabel>
               <Select value={editType} onValueChange={(v) => setEditType(v as StackItemType)}>
                 <SelectTrigger id="stack-edit-type" className="w-full">
                   <SelectValue />
@@ -667,15 +675,15 @@ function StackCard({ company, onChanged }: { company: CompanyDetail; onChanged: 
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="stack-edit-description">Description</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="stack-edit-description">Description</FieldLabel>
               <Textarea
                 id="stack-edit-description"
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.currentTarget.value)}
               />
-            </div>
+            </Field>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditTarget(null)} disabled={editBusy}>
                 Cancel
@@ -737,13 +745,15 @@ function ContactsCard({ company }: { company: CompanyDetail }) {
               const name = [contact.last_name, contact.first_name].filter(Boolean).join(", ") || contact.email || "—";
               return (
                 <li key={contact.id}>
-                  <button
-                    type="button"
-                    className="text-primary underline underline-offset-4"
-                    onClick={() => store.navigate("contact", { id: contact.id })}
-                  >
-                    {name}
-                  </button>
+                  <Item size="sm" className="p-0">
+                    <button
+                      type="button"
+                      className="text-primary underline underline-offset-4"
+                      onClick={() => store.navigate("contact", { id: contact.id })}
+                    >
+                      {name}
+                    </button>
+                  </Item>
                 </li>
               );
             })}
@@ -766,18 +776,20 @@ function ApplicationsCard({ company }: { company: CompanyDetail }) {
         ) : (
           <ul className="space-y-1 text-sm">
             {company.recent_applications.map((app) => (
-              <li key={app.id} className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className="text-primary underline underline-offset-4"
-                  onClick={() => store.navigate("application", { id: app.id })}
-                >
-                  {app.job_title || "Untitled application"}
-                </button>
-                <Badge variant={applicationStatusVariant(app.status)}>{app.status_label}</Badge>
-                {app.date_submitted && (
-                  <span className="text-muted-foreground">{app.date_submitted}</span>
-                )}
+              <li key={app.id}>
+                <Item size="sm" className="p-0">
+                  <button
+                    type="button"
+                    className="text-primary underline underline-offset-4"
+                    onClick={() => store.navigate("application", { id: app.id })}
+                  >
+                    {app.job_title || "Untitled application"}
+                  </button>
+                  <Badge variant={applicationStatusVariant(app.status)}>{app.status_label}</Badge>
+                  {app.date_submitted && (
+                    <span className="text-muted-foreground">{app.date_submitted}</span>
+                  )}
+                </Item>
               </li>
             ))}
           </ul>

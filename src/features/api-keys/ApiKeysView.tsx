@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
 import { EmptyState } from "@/components/common/EmptyState";
+import { PageHeader } from "@/components/common/PageHeader";
+import { TableSkeleton } from "@/components/common/TableSkeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +24,7 @@ import { CreateApiKeyForm } from "@/features/api-keys/CreateApiKeyForm";
 import * as apiKeysApi from "@/lib/api/apiKeys";
 import type { ApiKey, CreateApiKeyResponse } from "@/lib/api/apiKeys";
 import { ApiError, errorMessage } from "@/lib/api/client";
+import { store } from "@/store/store";
 import { useStore } from "@/store/useStore";
 
 const STATUS_VARIANT = {
@@ -31,10 +34,10 @@ const STATUS_VARIANT = {
 } as const;
 
 export function ApiKeysView() {
-  const { user } = useStore();
+  const { user, apiKeysList } = useStore();
+  const { showInactive } = apiKeysList;
   const [keys, setKeys] = useState<ApiKey[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showInactive, setShowInactive] = useState(false);
   const [reveal, setReveal] = useState<CreateApiKeyResponse | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<ApiKey | null>(null);
   const [revokeBusy, setRevokeBusy] = useState(false);
@@ -74,13 +77,13 @@ export function ApiKeysView() {
     return <EmptyState>You do not hold any scope that can be granted to a key.</EmptyState>;
   }
   if (error) return <Banner kind="error">{error}</Banner>;
-  if (keys === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (keys === null) return <TableSkeleton />;
 
   const visible = keys.filter((k) => showInactive || apiKeysApi.apiKeyStatus(k) === "active");
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-semibold">API keys</h2>
+      <PageHeader title="API keys" />
       <CreateApiKeyForm
         user={user!}
         onCreated={(resp) => {
@@ -92,7 +95,10 @@ export function ApiKeysView() {
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-medium">Your keys</h3>
         <Label className="text-sm font-normal">
-          <Switch checked={showInactive} onCheckedChange={setShowInactive} />
+          <Switch
+            checked={showInactive}
+            onCheckedChange={(checked) => store.setApiKeysList({ showInactive: checked })}
+          />
           Show expired and revoked
         </Label>
       </div>

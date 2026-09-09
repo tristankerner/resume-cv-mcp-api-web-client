@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Banner } from "@/components/common/Banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
+import { Spinner } from "@/components/ui/spinner";
 import * as auditApi from "@/lib/api/audit";
 import type { AuditEntry, AuditOperation } from "@/lib/api/audit";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -70,34 +72,38 @@ export function HistoryPanel({ table, rowId }: { table: string; rowId: number })
       <h3 className="mb-2 font-medium">History</h3>
       <Banner kind="error">{error}</Banner>
       {entries === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner /> Loading…</p>
       ) : entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">No history yet.</p>
       ) : (
         <ul className="space-y-3">
           {entries.map((entry) => (
-            <li key={entry.id} className="rounded-md border p-3 text-sm">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={OP_VARIANT[entry.operation]}>{OP_LABEL[entry.operation]}</Badge>
-                <span className="text-muted-foreground">{new Date(entry.changed_at).toLocaleString()}</span>
-                <span className="text-muted-foreground">{whoLabel(entry, user?.id)}</span>
-              </div>
-              {entry.operation === "U" && entry.changed_columns && entry.changed_columns.length > 0 && (
-                <ul className="mt-2 space-y-1">
-                  {entry.changed_columns.map((col) => {
-                    const oldVal = formatValue(entry.old_data?.[col]);
-                    const newVal = formatValue(entry.new_data?.[col]);
-                    return (
-                      <li key={col} className="text-xs">
-                        <span className="font-medium">{col}</span>:{" "}
-                        <span title={oldVal.title}>{oldVal.text}</span>
-                        {" → "}
-                        <span title={newVal.title}>{newVal.text}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+            <li key={entry.id}>
+              <Item variant="outline" className="flex-col items-start">
+                <ItemTitle className="font-normal">
+                  <Badge variant={OP_VARIANT[entry.operation]}>{OP_LABEL[entry.operation]}</Badge>
+                  <span className="text-muted-foreground">{new Date(entry.changed_at).toLocaleString()}</span>
+                  <span className="text-muted-foreground">{whoLabel(entry, user?.id)}</span>
+                </ItemTitle>
+                {entry.operation === "U" && entry.changed_columns && entry.changed_columns.length > 0 && (
+                  <ItemContent>
+                    <ul className="space-y-1">
+                      {entry.changed_columns.map((col) => {
+                        const oldVal = formatValue(entry.old_data?.[col]);
+                        const newVal = formatValue(entry.new_data?.[col]);
+                        return (
+                          <li key={col} className="text-xs">
+                            <span className="font-medium">{col}</span>:{" "}
+                            <span title={oldVal.title}>{oldVal.text}</span>
+                            {" → "}
+                            <span title={newVal.title}>{newVal.text}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </ItemContent>
+                )}
+              </Item>
             </li>
           ))}
         </ul>

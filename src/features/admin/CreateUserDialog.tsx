@@ -4,6 +4,7 @@ import { Banner } from "@/components/common/Banner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import * as adminApi from "@/lib/api/admin";
@@ -78,8 +79,8 @@ export function CreateUserDialog({
             <DialogTitle>Create user</DialogTitle>
           </DialogHeader>
           <Banner kind="error">{error}</Banner>
-          <div className="space-y-1.5">
-            <Label htmlFor="new-user-username">Username</Label>
+          <Field>
+            <FieldLabel htmlFor="new-user-username">Username</FieldLabel>
             <Input
               id="new-user-username"
               value={username}
@@ -87,23 +88,23 @@ export function CreateUserDialog({
               autoComplete="off"
               required
             />
-          </div>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="new-user-first-name">First name</Label>
+            <Field>
+              <FieldLabel htmlFor="new-user-first-name">First name</FieldLabel>
               <Input id="new-user-first-name" value={firstName} onChange={(e) => setFirstName(e.currentTarget.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-user-last-name">Last name</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="new-user-last-name">Last name</FieldLabel>
               <Input id="new-user-last-name" value={lastName} onChange={(e) => setLastName(e.currentTarget.value)} />
-            </div>
+            </Field>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="new-user-email">Email</Label>
+          <Field>
+            <FieldLabel htmlFor="new-user-email">Email</FieldLabel>
             <Input id="new-user-email" type="email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="new-user-password">Password</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="new-user-password">Password</FieldLabel>
             <Input
               id="new-user-password"
               type="password"
@@ -119,9 +120,9 @@ export function CreateUserDialog({
                 </li>
               ))}
             </ul>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="new-user-retype">Retype password</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="new-user-retype">Retype password</FieldLabel>
             <Input
               id="new-user-retype"
               type="password"
@@ -130,10 +131,8 @@ export function CreateUserDialog({
               autoComplete="new-password"
               required
             />
-            {retype.length > 0 && !retypeMatches && (
-              <p className="text-sm text-destructive">Passwords do not match.</p>
-            )}
-          </div>
+            <FieldError>{retype.length > 0 && !retypeMatches ? "Passwords do not match." : null}</FieldError>
+          </Field>
           <div className="space-y-2">
             <Label>Roles</Label>
             <div className="flex gap-4">

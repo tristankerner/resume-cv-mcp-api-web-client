@@ -1,12 +1,14 @@
+import { SearchIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
 import { DataTableFooter } from "@/components/common/DataTableFooter";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
+import { TableSkeleton } from "@/components/common/TableSkeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import * as companiesApi from "@/lib/api/companies";
@@ -30,11 +32,9 @@ function contactName(contact: Contact): string {
 }
 
 export function ContactListView() {
-  const { user } = useStore();
-  const [query, setQuery] = useState("");
-  const [companyFilter, setCompanyFilter] = useState(ALL);
+  const { user, contactsList } = useStore();
+  const { query, companyFilter, offset } = contactsList;
   const [companies, setCompanies] = useState<CompanySummary[]>([]);
-  const [offset, setOffset] = useState(0);
   const [result, setResult] = useState<ListEnvelope<Contact> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,20 +77,22 @@ export function ContactListView() {
 
       <Card className="mb-4">
         <CardContent className="flex flex-wrap gap-3">
-          <Input
-            className="max-w-xs"
-            placeholder="Search contacts…"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.currentTarget.value);
-              setOffset(0);
-            }}
-          />
+          <InputGroup className="max-w-xs">
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Search contacts…"
+              value={query}
+              onChange={(e) => {
+                store.setContactsList({ query: e.currentTarget.value, offset: 0 });
+              }}
+            />
+          </InputGroup>
           <Select
             value={companyFilter}
             onValueChange={(v) => {
-              setCompanyFilter(v);
-              setOffset(0);
+              store.setContactsList({ companyFilter: v, offset: 0 });
             }}
           >
             <SelectTrigger className="w-48">
@@ -111,9 +113,19 @@ export function ContactListView() {
 
       {error && <Banner kind="error">{error}</Banner>}
       {result === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <TableSkeleton />
       ) : result.data.length === 0 ? (
-        <EmptyState>No contacts yet.</EmptyState>
+        <EmptyState
+          action={
+            canWrite(user, "contacts") && (
+              <Button size="sm" onClick={() => store.navigate("contact-create")}>
+                New contact
+              </Button>
+            )
+          }
+        >
+          No contacts yet.
+        </EmptyState>
       ) : (
         <>
           <Table className="table-reflow">
@@ -144,7 +156,12 @@ export function ContactListView() {
               ))}
             </TableBody>
           </Table>
-          <DataTableFooter total={result.total} limit={LIMIT} offset={offset} onOffsetChange={setOffset} />
+          <DataTableFooter
+            total={result.total}
+            limit={LIMIT}
+            offset={offset}
+            onOffsetChange={(next) => store.setContactsList({ offset: next })}
+          />
         </>
       )}
     </div>

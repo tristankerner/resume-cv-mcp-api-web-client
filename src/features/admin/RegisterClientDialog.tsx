@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { Banner } from "@/components/common/Banner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -69,10 +70,10 @@ export function RegisterClientDialog({
             <DialogTitle>Register OAuth client</DialogTitle>
           </DialogHeader>
           <Banner kind="error">{error}</Banner>
-          <div className="space-y-1.5">
-            <Label htmlFor="client-name">Name</Label>
+          <Field>
+            <FieldLabel htmlFor="client-name">Name</FieldLabel>
             <Input id="client-name" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
-          </div>
+          </Field>
           <div className="space-y-2">
             <Label>Redirect URIs</Label>
             {redirectUris.map((uri, i) => (
@@ -95,26 +96,26 @@ export function RegisterClientDialog({
             </Button>
           </div>
           <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="client-public" className="mb-0">
+            <Field>
+              <FieldLabel htmlFor="client-public" className="mb-0">
                 Public client
-              </Label>
-              <p className="text-sm text-muted-foreground">
+              </FieldLabel>
+              <FieldDescription>
                 No client secret — PKCE binds the exchange. Turn off for a confidential client
                 that can keep a secret.
-              </p>
-            </div>
+              </FieldDescription>
+            </Field>
             <Switch id="client-public" checked={isPublic} onCheckedChange={setIsPublic} />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="client-scope">Default scope (optional)</Label>
+          <Field>
+            <FieldLabel htmlFor="client-scope">Default scope (optional)</FieldLabel>
             <Input
               id="client-scope"
               value={scope}
               onChange={(e) => setScope(e.currentTarget.value)}
               placeholder="resume:read resume:write"
             />
-          </div>
+          </Field>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
               Cancel

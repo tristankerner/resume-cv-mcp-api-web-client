@@ -1,10 +1,12 @@
 import { type FormEvent, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Banner } from "@/components/common/Banner";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import * as authApi from "@/lib/api/auth";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { passwordComplexityChecks } from "@/lib/passwords";
@@ -17,7 +19,6 @@ export function AccountView() {
   const [next, setNext] = useState("");
   const [retype, setRetype] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const checks = useMemo(() => passwordComplexityChecks(next), [next]);
@@ -27,7 +28,6 @@ export function AccountView() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
     if (!allMet) {
       setError("The new password does not meet the requirements below.");
       return;
@@ -47,7 +47,7 @@ export function AccountView() {
         new_password: next,
         new_password_retype: retype,
       });
-      setSuccess(true);
+      toast.success("Password changed.");
       setCurrent("");
       setNext("");
       setRetype("");
@@ -61,7 +61,7 @@ export function AccountView() {
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-semibold">Account</h2>
+      <PageHeader title="Account" />
       <Card className="mb-5">
         <CardContent className="space-y-1">
           <p className="font-semibold">{user!.username}</p>
@@ -70,14 +70,13 @@ export function AccountView() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="max-w-3xl">
         <CardHeader>
           <CardTitle>Change password</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
             <Banner kind="error">{error}</Banner>
-            <Banner kind="success">{success ? "Password changed." : null}</Banner>
 
             {/* Off-screen rather than absent: this is what lets a password
                 manager associate the new password with this account and
@@ -92,8 +91,8 @@ export function AccountView() {
               tabIndex={-1}
             />
 
-            <div className="space-y-1.5">
-              <Label htmlFor="current-password">Current password</Label>
+            <Field>
+              <FieldLabel htmlFor="current-password">Current password</FieldLabel>
               <Input
                 id="current-password"
                 type="password"
@@ -102,9 +101,9 @@ export function AccountView() {
                 autoComplete="current-password"
                 required
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-password">New password</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="new-password">New password</FieldLabel>
               <Input
                 id="new-password"
                 type="password"
@@ -120,9 +119,9 @@ export function AccountView() {
                   </li>
                 ))}
               </ul>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="retype-password">Retype new password</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="retype-password">Retype new password</FieldLabel>
               <Input
                 id="retype-password"
                 type="password"
@@ -131,10 +130,8 @@ export function AccountView() {
                 autoComplete="new-password"
                 required
               />
-              {retype.length > 0 && !retypeMatches && (
-                <p className="text-sm text-destructive">Passwords do not match.</p>
-              )}
-            </div>
+              <FieldError>{retype.length > 0 && !retypeMatches ? "Passwords do not match." : null}</FieldError>
+            </Field>
             <Button type="submit" disabled={busy}>
               {busy ? "Changing…" : "Change password"}
             </Button>

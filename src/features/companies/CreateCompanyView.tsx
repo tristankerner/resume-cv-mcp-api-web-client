@@ -1,9 +1,10 @@
 import { type FormEvent, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DuplicateWarning } from "@/features/tracking/DuplicateWarning";
 import * as companiesApi from "@/lib/api/companies";
@@ -47,8 +48,8 @@ export function CreateCompanyView() {
   }
 
   return (
-    <div>
-      <h2 className="mb-4 text-xl font-semibold">New company</h2>
+    <div className="max-w-3xl">
+      <PageHeader title="New company" />
       <Banner kind="error">{error}</Banner>
       {conflict && (
         <div className="mb-4">
@@ -67,12 +68,12 @@ export function CreateCompanyView() {
         }}
         className="space-y-4"
       >
-        <div className="space-y-1.5">
-          <Label htmlFor="company-name">Name</Label>
+        <Field>
+          <FieldLabel htmlFor="company-name">Name</FieldLabel>
           <Input id="company-name" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="company-website">Website</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="company-website">Website</FieldLabel>
           <Input
             id="company-website"
             type="url"
@@ -80,23 +81,23 @@ export function CreateCompanyView() {
             value={website}
             onChange={(e) => setWebsite(e.currentTarget.value)}
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="company-description">Description</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="company-description">Description</FieldLabel>
           <Textarea
             id="company-description"
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="company-note">Personal note</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="company-note">Personal note</FieldLabel>
           <Textarea
             id="company-note"
             value={personalNote}
             onChange={(e) => setPersonalNote(e.currentTarget.value)}
           />
-        </div>
+        </Field>
         <div className="flex gap-3">
           <Button type="submit" disabled={busy || !name.trim()}>
             {busy ? "Creating…" : "Create"}

@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Banner } from "@/components/common/Banner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import * as documentsApi from "@/lib/api/documents";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import type { DeleteDocumentResponse } from "@/lib/api/documents";
@@ -45,8 +45,8 @@ export function DeleteDialog({
           </DialogDescription>
         </DialogHeader>
         <Banner kind="error">{error}</Banner>
-        <div className="space-y-1.5">
-          <Label htmlFor="confirm-name">Type the document name to confirm</Label>
+        <Field>
+          <FieldLabel htmlFor="confirm-name">Type the document name to confirm</FieldLabel>
           <Input
             id="confirm-name"
             type="text"
@@ -54,7 +54,7 @@ export function DeleteDialog({
             onChange={(e) => setTyped(e.currentTarget.value)}
             autoComplete="off"
           />
-        </div>
+        </Field>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={busy}>
             Cancel

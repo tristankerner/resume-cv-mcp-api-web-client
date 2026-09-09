@@ -4,6 +4,7 @@ import { Banner } from "@/components/common/Banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -69,8 +70,8 @@ export function CreateApiKeyForm({
       <CardContent>
         <form onSubmit={submit} className="space-y-4">
           <Banner kind="error">{error}</Banner>
-          <div className="space-y-1.5">
-            <Label htmlFor="key-name">Name</Label>
+          <Field>
+            <FieldLabel htmlFor="key-name">Name</FieldLabel>
             <Input
               id="key-name"
               type="text"
@@ -78,9 +79,9 @@ export function CreateApiKeyForm({
               onChange={(e) => setName(e.currentTarget.value)}
               required
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="key-expires">Expiration</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="key-expires">Expiration</FieldLabel>
             <Select value={expiresInDays} onValueChange={setExpiresInDays}>
               <SelectTrigger id="key-expires" className="w-full">
                 <SelectValue />
@@ -93,7 +94,7 @@ export function CreateApiKeyForm({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </Field>
           <div className="space-y-2">
             <Label>Scopes</Label>
             <div className="flex flex-wrap gap-3">

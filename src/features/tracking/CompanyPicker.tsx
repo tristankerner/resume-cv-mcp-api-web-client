@@ -1,6 +1,17 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Spinner } from "@/components/ui/spinner";
 import * as companiesApi from "@/lib/api/companies";
 import { asDuplicateConflict } from "@/lib/api/tracking";
 import { canWrite } from "@/lib/auth/scopes";
@@ -11,6 +22,8 @@ interface CompanyOption {
   id: number | null;
   name: string;
 }
+
+const NONE_OPTION: CompanyOption = { id: null, name: "— no company —" };
 
 export function CompanyPicker({
   value,
@@ -31,53 +44,59 @@ export function CompanyPicker({
   placeholder?: string;
 }) {
   const { user } = useStore();
-  const [text, setText] = useState(valueLabel ?? "");
+  const [label, setLabel] = useState(valueLabel ?? "");
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [options, setOptions] = useState<CompanyOption[]>([]);
-  const [highlighted, setHighlighted] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<number | undefined>(undefined);
-  // Selecting a row sets `text` directly; the effect below only needs to
-  // react to the value changing out from under the picker (e.g. a parent
+  // Selecting a row sets `label` directly; this effect only needs to react
+  // to the value changing out from under the picker (e.g. a parent
   // resetting the form), not to every keystroke that already updated it.
   const lastAppliedValue = useRef(value);
 
   useEffect(() => {
     if (lastAppliedValue.current === value) return;
     lastAppliedValue.current = value;
-    setText(value === null ? "" : (valueLabel ?? ""));
+    setLabel(value === null ? "" : (valueLabel ?? ""));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
-  function search(query: string) {
+  function search(text: string) {
     window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(async () => {
       try {
-        const resp = await companiesApi.listCompanies({ query, limit: 10 });
+        const resp = await companiesApi.listCompanies({ query: text, limit: 10 });
         setOptions(resp.data.map((c) => ({ id: c.id, name: c.name })));
-        setHighlighted(0);
       } catch {
         // A live-search dropdown swallows load errors rather than banner-ing them.
       }
     }, 300);
   }
 
-  function handleTextChange(next: string) {
-    setText(next);
-    setOpen(true);
-    setError(null);
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) {
+      setQuery("");
+      setError(null);
+      search("");
+    }
+  }
+
+  function handleQueryChange(next: string) {
+    setQuery(next);
     search(next);
   }
 
   function select(option: CompanyOption) {
     lastAppliedValue.current = option.id;
-    setText(option.name);
+    setLabel(option.name);
     setOpen(false);
     onChange(option.id, option.id === null ? null : option.name);
   }
 
-  const trimmed = text.trim();
+  const trimmed = query.trim();
   const exactMatch = options.some((o) => o.name.toLowerCase() === trimmed.toLowerCase());
   const canCreate = allowCreate && canWrite(user, "companies") && trimmed.length > 0 && !exactMatch;
 
@@ -104,73 +123,48 @@ export function CompanyPicker({
     }
   }
 
-  const rows: CompanyOption[] = allowNone ? [{ id: null, name: "— no company —" }, ...options] : options;
-
-  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (!open) return;
-    const total = rows.length + (canCreate ? 1 : 0);
-    if (total === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlighted((h) => Math.min(h + 1, total - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlighted((h) => Math.max(h - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (highlighted < rows.length) select(rows[highlighted]);
-      else if (canCreate) createInline();
-    } else if (e.key === "Escape") {
-      setOpen(false);
-    }
-  }
+  const rows: CompanyOption[] = allowNone ? [NONE_OPTION, ...options] : options;
 
   return (
-    <div className="relative">
-      <Input
-        value={text}
-        placeholder={placeholder}
-        onChange={(e) => handleTextChange(e.currentTarget.value)}
-        onFocus={() => {
-          setOpen(true);
-          search(text);
-        }}
-        onBlur={() => setTimeout(() => setOpen(false), 100)}
-        onKeyDown={onKeyDown}
-      />
-      {open && (rows.length > 0 || canCreate) && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
-          <ul className="max-h-60 overflow-auto p-1 text-sm">
-            {rows.map((row, i) => (
-              <li
-                key={row.id ?? "none"}
-                className={cn(
-                  "cursor-pointer rounded-sm px-2 py-1.5",
-                  i === highlighted && "bg-accent text-accent-foreground",
+    <div>
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between font-normal"
+          >
+            <span className={cn("truncate", !label && "text-muted-foreground")}>
+              {label || placeholder}
+            </span>
+            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+          <Command shouldFilter={false}>
+            <CommandInput placeholder={placeholder} value={query} onValueChange={handleQueryChange} />
+            <CommandList>
+              <CommandEmpty>{canCreate ? null : "No companies found."}</CommandEmpty>
+              <CommandGroup>
+                {rows.map((row) => (
+                  <CommandItem key={row.id ?? "none"} value={String(row.id)} onSelect={() => select(row)}>
+                    <Check className={cn("size-4", value === row.id ? "opacity-100" : "opacity-0")} />
+                    {row.name}
+                  </CommandItem>
+                ))}
+                {canCreate && (
+                  <CommandItem value={`__create__${trimmed}`} disabled={busy} onSelect={createInline}>
+                    {busy ? <Spinner /> : <Check className="size-4 opacity-0" />}
+                    {busy ? "Creating…" : `Create "${trimmed}"`}
+                  </CommandItem>
                 )}
-                onMouseEnter={() => setHighlighted(i)}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => select(row)}
-              >
-                {row.name}
-              </li>
-            ))}
-            {canCreate && (
-              <li
-                className={cn(
-                  "cursor-pointer rounded-sm px-2 py-1.5",
-                  highlighted === rows.length && "bg-accent text-accent-foreground",
-                )}
-                onMouseEnter={() => setHighlighted(rows.length)}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={createInline}
-              >
-                {busy ? "Creating…" : `Create "${trimmed}"`}
-              </li>
-            )}
-          </ul>
-        </div>
-      )}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
       {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
     </div>
   );

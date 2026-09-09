@@ -3,8 +3,8 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { Banner } from "@/components/common/Banner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { useStore } from "@/store/useStore";
 
@@ -68,8 +68,8 @@ export function ConfirmPasswordDialog({
             readOnly
             tabIndex={-1}
           />
-          <div className="space-y-1.5">
-            <Label htmlFor="confirm-current-password">Current password</Label>
+          <Field>
+            <FieldLabel htmlFor="confirm-current-password">Current password</FieldLabel>
             <Input
               id="confirm-current-password"
               type="password"
@@ -79,7 +79,7 @@ export function ConfirmPasswordDialog({
               required
               autoFocus
             />
-          </div>
+          </Field>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
               Cancel

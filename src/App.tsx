@@ -47,22 +47,20 @@ export function App() {
     <>
       <AppShell>
         {user && !user.mfa_enrolled && !warningDismissed && (
-          <div className="mb-4">
-            <Banner kind="warn" onDismiss={() => setWarningDismissed(true)}>
-              Your account has no second factor.{" "}
-              <a
-                href="#"
-                className="underline underline-offset-4"
-                onClick={(e) => {
-                  e.preventDefault();
-                  store.navigate("security");
-                }}
-              >
-                Set one up
-              </a>
-              .
-            </Banner>
-          </div>
+          <Banner kind="warn" onDismiss={() => setWarningDismissed(true)}>
+            Your account has no second factor.{" "}
+            <a
+              href="#"
+              className="underline underline-offset-4"
+              onClick={(e) => {
+                e.preventDefault();
+                store.navigate("security");
+              }}
+            >
+              Set one up
+            </a>
+            .
+          </Banner>
         )}
         <CurrentView />
       </AppShell>

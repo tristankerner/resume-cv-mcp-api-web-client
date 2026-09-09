@@ -1,12 +1,14 @@
+import { SearchIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
 import { DataTableFooter } from "@/components/common/DataTableFooter";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
+import { TableSkeleton } from "@/components/common/TableSkeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import * as companiesApi from "@/lib/api/companies";
@@ -14,19 +16,15 @@ import { ApiError, errorMessage } from "@/lib/api/client";
 import type { ListEnvelope } from "@/lib/api/tracking";
 import type { CompanySummary } from "@/lib/api/companies";
 import { canWrite } from "@/lib/auth/scopes";
-import { store } from "@/store/store";
+import { store, type CompaniesListState } from "@/store/store";
 import { useStore } from "@/store/useStore";
 import { safeHref } from "@/lib/tracking/links";
 
 const LIMIT = 50;
 
-type SortOption = "name" | "-created_at";
-
 export function CompanyListView() {
-  const { user } = useStore();
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortOption>("name");
-  const [offset, setOffset] = useState(0);
+  const { user, companiesList } = useStore();
+  const { query, sort, offset } = companiesList;
   const [result, setResult] = useState<ListEnvelope<CompanySummary> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,20 +57,22 @@ export function CompanyListView() {
 
       <Card className="mb-4">
         <CardContent className="flex flex-wrap gap-3">
-          <Input
-            className="max-w-xs"
-            placeholder="Search companies…"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.currentTarget.value);
-              setOffset(0);
-            }}
-          />
+          <InputGroup className="max-w-xs">
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Search companies…"
+              value={query}
+              onChange={(e) => {
+                store.setCompaniesList({ query: e.currentTarget.value, offset: 0 });
+              }}
+            />
+          </InputGroup>
           <Select
             value={sort}
             onValueChange={(v) => {
-              setSort(v as SortOption);
-              setOffset(0);
+              store.setCompaniesList({ sort: v as CompaniesListState["sort"], offset: 0 });
             }}
           >
             <SelectTrigger className="w-40">
@@ -88,9 +88,19 @@ export function CompanyListView() {
 
       {error && <Banner kind="error">{error}</Banner>}
       {result === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <TableSkeleton />
       ) : result.data.length === 0 ? (
-        <EmptyState>No companies yet.</EmptyState>
+        <EmptyState
+          action={
+            canWrite(user, "companies") && (
+              <Button size="sm" onClick={() => store.navigate("company-create")}>
+                New company
+              </Button>
+            )
+          }
+        >
+          No companies yet.
+        </EmptyState>
       ) : (
         <>
           <Table className="table-reflow">
@@ -132,7 +142,12 @@ export function CompanyListView() {
               ))}
             </TableBody>
           </Table>
-          <DataTableFooter total={result.total} limit={LIMIT} offset={offset} onOffsetChange={setOffset} />
+          <DataTableFooter
+            total={result.total}
+            limit={LIMIT}
+            offset={offset}
+            onOffsetChange={(next) => store.setCompaniesList({ offset: next })}
+          />
         </>
       )}
     </div>

@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { JsonEditor, JSONSchema } from "vanilla-jsoneditor";
 import { toJSONContent } from "vanilla-jsoneditor";
 
 import { Banner } from "@/components/common/Banner";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import { DeleteDialog } from "@/features/documents/DeleteDialog";
 import { JsonEditorField, type EditorMode } from "@/features/documents/JsonEditorField";
 import { ModeToggle } from "@/features/documents/ModeToggle";
@@ -53,6 +57,10 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
   // against "Current" up to date; bump it wherever the content moves.
   const [editorVersion, setEditorVersion] = useState(0);
   const editorApiRef = useRef<JsonEditor | null>(null);
+
+  useEffect(() => {
+    store.setCrumb(name);
+  }, [name]);
 
   // Two different refreshes, deliberately kept apart: the initial load (and
   // any switch to a different document, via the `key` CurrentView puts on
@@ -108,7 +116,7 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, name]);
 
-  if (state.loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (state.loading) return <p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner /> Loading…</p>;
   if (state.error) return <Banner kind="error">{state.error}</Banner>;
 
   const schema = (schemas?.schemas?.[type] as JSONSchema | undefined) ?? null;
@@ -163,7 +171,12 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
         public: isPublic,
         data,
       });
-      setSaveResult(resp);
+      if (resp.status === "created") {
+        toast.success(`Saved as revision #${resp.revision_id}.`);
+        setSaveResult(null);
+      } else {
+        setSaveResult(resp);
+      }
       setRevisionNote("");
       setRestoredFrom(null);
       const result = await fetchRevisions();
@@ -185,26 +198,28 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">{name}</h2>
-          <div className="mt-1 flex gap-2">
+      <PageHeader
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            {name}
             <Badge variant="outline">{type}</Badge>
             {current.public && <Badge variant="success">public</Badge>}
+          </span>
+        }
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowRename(true)}>
+              Rename
+            </Button>
+            <Button variant="destructive" onClick={() => setShowDelete(true)}>
+              Delete
+            </Button>
+            <Button variant="outline" onClick={() => store.navigate("documents")}>
+              Back
+            </Button>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowRename(true)}>
-            Rename
-          </Button>
-          <Button variant="destructive" onClick={() => setShowDelete(true)}>
-            Delete
-          </Button>
-          <Button variant="outline" onClick={() => store.navigate("documents")}>
-            Back
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {restoredFrom && (
         <Banner kind="warn">
@@ -213,21 +228,19 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
         </Banner>
       )}
       {saveResult && (
-        <Banner kind={saveResult.status === "created" ? "success" : "info"}>
-          {saveResult.status === "created"
-            ? `Saved as revision #${saveResult.revision_id}.`
-            : "No changes — no revision was created. (The revision note was not recorded either.)"}
+        <Banner kind="info">
+          No changes — no revision was created. (The revision note was not recorded either.)
         </Banner>
       )}
       <Banner kind="error">{saveError}</Banner>
 
       <div className="space-y-4">
-        <div>
-          <Label>Type</Label>
-          <p className="text-sm text-muted-foreground">{type} — fixed at creation, cannot be changed.</p>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="revision-note">Revision note</Label>
+        <Field>
+          <FieldLabel>Type</FieldLabel>
+          <FieldDescription>{type} — fixed at creation, cannot be changed.</FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="revision-note">Revision note</FieldLabel>
           <Input
             id="revision-note"
             type="text"
@@ -235,14 +248,14 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
             onChange={(e) => setRevisionNote(e.currentTarget.value)}
             required
           />
-        </div>
+        </Field>
         <Label className="font-normal">
           <Checkbox checked={isPublic} onCheckedChange={(v) => setIsPublic(v === true)} />
           Public
         </Label>
-        <div className="space-y-1.5">
+        <Field>
           <div className="flex items-center justify-between">
-            <Label className="mb-0">Content</Label>
+            <FieldLabel className="mb-0">Content</FieldLabel>
             <ModeToggle mode={mode} onChange={setMode} />
           </div>
           <JsonEditorField
@@ -255,7 +268,7 @@ export function EditDocumentView({ type, name }: { type: DocType; name: string }
             }}
             onEditorReady={(api) => (editorApiRef.current = api)}
           />
-        </div>
+        </Field>
         <Button onClick={save} disabled={busy}>
           {busy ? "Saving…" : "Save"}
         </Button>

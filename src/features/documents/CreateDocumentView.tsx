@@ -3,8 +3,10 @@ import type { JsonEditor, JSONSchema } from "vanilla-jsoneditor";
 import { toJSONContent } from "vanilla-jsoneditor";
 
 import { Banner } from "@/components/common/Banner";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -83,12 +85,12 @@ export function CreateDocumentView() {
   const schema = (schemas?.schemas?.[type] as JSONSchema | undefined) ?? null;
 
   return (
-    <div>
-      <h2 className="mb-4 text-xl font-semibold">New document</h2>
+    <div className="max-w-3xl">
+      <PageHeader title="New document" />
       <Banner kind="error">{submitError}</Banner>
       <form onSubmit={submit} className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="doc-type">Type</Label>
+        <Field>
+          <FieldLabel htmlFor="doc-type">Type</FieldLabel>
           <Select value={type} onValueChange={(v) => setType(v as DocType)}>
             <SelectTrigger id="doc-type" className="w-full">
               <SelectValue />
@@ -101,12 +103,12 @@ export function CreateDocumentView() {
               ))}
             </SelectContent>
           </Select>
-          <p className="text-sm text-muted-foreground">
+          <FieldDescription>
             Chosen here only — a document&rsquo;s type cannot be changed later.
-          </p>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="doc-name">Name</Label>
+          </FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="doc-name">Name</FieldLabel>
           <Input
             id="doc-name"
             type="text"
@@ -117,10 +119,10 @@ export function CreateDocumentView() {
             }}
             required
           />
-          {nameError && <p className="text-sm text-destructive">{nameError}</p>}
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="doc-note">Revision note</Label>
+          <FieldError>{nameError}</FieldError>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="doc-note">Revision note</FieldLabel>
           <Input
             id="doc-note"
             type="text"
@@ -128,14 +130,14 @@ export function CreateDocumentView() {
             onChange={(e) => setRevisionNote(e.currentTarget.value)}
             required
           />
-        </div>
+        </Field>
         <Label className="font-normal">
           <Checkbox checked={isPublic} onCheckedChange={(v) => setIsPublic(v === true)} />
           Public
         </Label>
-        <div className="space-y-1.5">
+        <Field>
           <div className="flex items-center justify-between">
-            <Label className="mb-0">Content</Label>
+            <FieldLabel className="mb-0">Content</FieldLabel>
             <ModeToggle mode={mode} onChange={setMode} />
           </div>
           <JsonEditorField
@@ -146,7 +148,7 @@ export function CreateDocumentView() {
             onDirty={(errors) => setHasValidationErrors(!!errors)}
             onEditorReady={(api) => (editorApiRef.current = api)}
           />
-        </div>
+        </Field>
         <div className="flex gap-3">
           <Button type="submit" disabled={busy}>
             {busy ? "Creating…" : "Create"}

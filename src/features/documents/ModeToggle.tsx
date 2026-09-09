@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { EditorMode } from "@/features/documents/JsonEditorField";
 
 export function ModeToggle({
@@ -9,13 +9,19 @@ export function ModeToggle({
   onChange: (mode: EditorMode) => void;
 }) {
   return (
-    <Button
-      type="button"
-      variant="ghost"
+    <ToggleGroup
+      type="single"
+      variant="outline"
       size="sm"
-      onClick={() => onChange(mode === "tree" ? "text" : "tree")}
+      value={mode}
+      onValueChange={(value) => value && onChange(value as EditorMode)}
     >
-      {mode === "tree" ? "Switch to text" : "Switch to tree"}
-    </Button>
+      <ToggleGroupItem value="tree" aria-label="Tree mode">
+        Tree
+      </ToggleGroupItem>
+      <ToggleGroupItem value="text" aria-label="Text mode">
+        Text
+      </ToggleGroupItem>
+    </ToggleGroup>
   );
 }

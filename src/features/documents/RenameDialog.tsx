@@ -3,8 +3,8 @@ import { type FormEvent, useState } from "react";
 import { Banner } from "@/components/common/Banner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import * as documentsApi from "@/lib/api/documents";
 import type { RenameDocumentResponse } from "@/lib/api/documents";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -69,8 +69,8 @@ export function RenameDialog({
             </Banner>
           )}
           <Banner kind="error">{error}</Banner>
-          <div className="space-y-1.5">
-            <Label htmlFor="new-name">New name</Label>
+          <Field>
+            <FieldLabel htmlFor="new-name">New name</FieldLabel>
             <Input
               id="new-name"
               type="text"
@@ -78,7 +78,7 @@ export function RenameDialog({
               onChange={(e) => setNewName(e.currentTarget.value)}
               required
             />
-          </div>
+          </Field>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
               Cancel

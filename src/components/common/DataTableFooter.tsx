@@ -1,4 +1,10 @@
-import { Button } from "@/components/ui/button";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 export function DataTableFooter({
   total,
@@ -21,24 +27,19 @@ export function DataTableFooter({
       <p className="text-sm text-muted-foreground">
         Showing {from}–{to} of {total}
       </p>
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={offset === 0}
-          onClick={() => onOffsetChange(Math.max(0, offset - limit))}
-        >
-          Previous
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={to >= total}
-          onClick={() => onOffsetChange(offset + limit)}
-        >
-          Next
-        </Button>
-      </div>
+      <Pagination className="mx-0 w-auto justify-end">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              disabled={offset === 0}
+              onClick={() => onOffsetChange(Math.max(0, offset - limit))}
+            />
+          </PaginationItem>
+          <PaginationItem>
+            <PaginationNext disabled={to >= total} onClick={() => onOffsetChange(offset + limit)} />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
     </div>
   );
 }

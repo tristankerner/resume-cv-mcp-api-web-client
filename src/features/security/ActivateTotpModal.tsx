@@ -4,6 +4,7 @@ import { Banner } from "@/components/common/Banner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import * as mfaApi from "@/lib/api/mfa";
@@ -70,8 +71,8 @@ export function ActivateTotpModal({
           <div className="flex justify-center">
             <img src={qrDataUrl} alt={`QR code encoding the ${enrolled.label} setup link`} width={200} height={200} />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="totp-secret">Secret</Label>
+          <Field>
+            <FieldLabel htmlFor="totp-secret">Secret</FieldLabel>
             <Input
               id="totp-secret"
               type="text"
@@ -88,14 +89,14 @@ export function ActivateTotpModal({
             <a href={enrolled.otpauth_uri} className="block text-sm text-muted-foreground underline underline-offset-4">
               Open in an authenticator app
             </a>
-          </div>
+          </Field>
           <Label className="font-normal">
             <Checkbox checked={saved} onCheckedChange={(v) => setSaved(v === true)} />
             I have saved this
           </Label>
           <Banner kind="error">{error}</Banner>
-          <div className="space-y-1.5">
-            <Label htmlFor="activate-code">Code from your app</Label>
+          <Field>
+            <FieldLabel htmlFor="activate-code">Code from your app</FieldLabel>
             <Input
               id="activate-code"
               type="text"
@@ -106,7 +107,7 @@ export function ActivateTotpModal({
               disabled={!saved}
               required
             />
-          </div>
+          </Field>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
               Cancel

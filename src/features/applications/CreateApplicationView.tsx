@@ -1,7 +1,9 @@
 import { type FormEvent, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -68,8 +70,8 @@ export function CreateApplicationView() {
   }
 
   return (
-    <div>
-      <h2 className="mb-4 text-xl font-semibold">New application</h2>
+    <div className="max-w-3xl">
+      <PageHeader title="New application" />
       <Banner kind="error">{error}</Banner>
       {conflict && (
         <div className="mb-4">
@@ -88,71 +90,71 @@ export function CreateApplicationView() {
         }}
         className="space-y-4"
       >
-        <div className="space-y-1.5">
-          <Label>Company</Label>
+        <Field>
+          <FieldLabel>Company</FieldLabel>
           <CompanyPicker value={companyId} onChange={(id) => setCompanyId(id)} allowCreate />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="app-title">Job title</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="app-title">Job title</FieldLabel>
           <Input id="app-title" value={jobTitle} onChange={(e) => setJobTitle(e.currentTarget.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="app-code">Job code</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="app-code">Job code</FieldLabel>
           <Input
             id="app-code"
             value={jobCode}
             onChange={(e) => setJobCode(e.currentTarget.value)}
             placeholder="REQ-12345"
           />
-          <p className="text-xs text-muted-foreground">
+          <FieldDescription>
             Optional. The requisition code from the posting or the recruiter — it is what
             identifies the same job if it reaches you again through someone else.
-          </p>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="app-url">URL</Label>
+          </FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="app-url">URL</FieldLabel>
           <Input id="app-url" type="url" value={url} onChange={(e) => setUrl(e.currentTarget.value)} />
-        </div>
+        </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="app-source">Source</Label>
+          <Field>
+            <FieldLabel htmlFor="app-source">Source</FieldLabel>
             <Input id="app-source" value={source} onChange={(e) => setSource(e.currentTarget.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="app-system">System</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="app-system">System</FieldLabel>
             <Input id="app-system" value={system} onChange={(e) => setSystem(e.currentTarget.value)} />
-          </div>
+          </Field>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="app-date">Date submitted</Label>
+        <Field>
+          <FieldLabel htmlFor="app-date">Date submitted</FieldLabel>
           <Input
             id="app-date"
             type="date"
             value={dateSubmitted}
             onChange={(e) => setDateSubmitted(e.currentTarget.value)}
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="app-resume-label">Resume label</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="app-resume-label">Resume label</FieldLabel>
           <Input id="app-resume-label" value={resumeLabel} onChange={(e) => setResumeLabel(e.currentTarget.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="app-prompt">Initial prompt text</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="app-prompt">Initial prompt text</FieldLabel>
           <Textarea
             id="app-prompt"
             value={initialPromptText}
             onChange={(e) => setInitialPromptText(e.currentTarget.value)}
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="app-description">Job description</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="app-description">Job description</FieldLabel>
           <Textarea
             id="app-description"
             className="min-h-40"
             value={jobDescription}
             onChange={(e) => setJobDescription(e.currentTarget.value)}
           />
-        </div>
+        </Field>
         <div className="flex items-center justify-between">
           <Label htmlFor="app-manual" className="mb-0">
             Manually modified
@@ -160,14 +162,14 @@ export function CreateApplicationView() {
           <Switch id="app-manual" checked={manuallyModified} onCheckedChange={setManuallyModified} />
         </div>
         {manuallyModified && (
-          <div className="space-y-1.5">
-            <Label htmlFor="app-mod-note">Modification note</Label>
+          <Field>
+            <FieldLabel htmlFor="app-mod-note">Modification note</FieldLabel>
             <Textarea
               id="app-mod-note"
               value={modificationNote}
               onChange={(e) => setModificationNote(e.currentTarget.value)}
             />
-          </div>
+          </Field>
         )}
         <div className="flex gap-3">
           <Button type="submit" disabled={busy || companyId === null}>

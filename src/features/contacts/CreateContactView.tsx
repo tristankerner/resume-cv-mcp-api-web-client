@@ -1,9 +1,10 @@
 import { type FormEvent, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CompanyPicker } from "@/features/tracking/CompanyPicker";
@@ -59,8 +60,8 @@ export function CreateContactView({ companyId }: { companyId?: number }) {
   }
 
   return (
-    <div>
-      <h2 className="mb-4 text-xl font-semibold">New contact</h2>
+    <div className="max-w-3xl">
+      <PageHeader title="New contact" />
       <Banner kind="error">{error}</Banner>
       {conflict && (
         <div className="mb-4">
@@ -79,37 +80,37 @@ export function CreateContactView({ companyId }: { companyId?: number }) {
         }}
         className="space-y-4"
       >
-        <div className="space-y-1.5">
-          <Label>Company</Label>
+        <Field>
+          <FieldLabel>Company</FieldLabel>
           <CompanyPicker value={company} onChange={(id) => setCompany(id)} allowCreate allowNone />
-        </div>
+        </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="contact-first">First name</Label>
+          <Field>
+            <FieldLabel htmlFor="contact-first">First name</FieldLabel>
             <Input id="contact-first" value={firstName} onChange={(e) => setFirstName(e.currentTarget.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="contact-last">Last name</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="contact-last">Last name</FieldLabel>
             <Input id="contact-last" value={lastName} onChange={(e) => setLastName(e.currentTarget.value)} />
-          </div>
+          </Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="contact-email">Email</Label>
+          <Field>
+            <FieldLabel htmlFor="contact-email">Email</FieldLabel>
             <Input id="contact-email" type="email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="contact-phone">Phone</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="contact-phone">Phone</FieldLabel>
             <Input id="contact-phone" value={phone} onChange={(e) => setPhone(e.currentTarget.value)} />
-          </div>
+          </Field>
         </div>
         {!valid && (
           <p className="text-sm text-muted-foreground">
             At least one of first name, last name or email is required.
           </p>
         )}
-        <div className="space-y-1.5">
-          <Label htmlFor="contact-rating">Rating</Label>
+        <Field>
+          <FieldLabel htmlFor="contact-rating">Rating</FieldLabel>
           <Select value={rating} onValueChange={setRating}>
             <SelectTrigger id="contact-rating" className="w-full">
               <SelectValue placeholder="— none —" />
@@ -122,19 +123,19 @@ export function CreateContactView({ companyId }: { companyId?: number }) {
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="contact-description">Description</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="contact-description">Description</FieldLabel>
           <Textarea
             id="contact-description"
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="contact-note">Personal note</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="contact-note">Personal note</FieldLabel>
           <Textarea id="contact-note" value={personalNote} onChange={(e) => setPersonalNote(e.currentTarget.value)} />
-        </div>
+        </Field>
         <div className="flex gap-3">
           <Button type="submit" disabled={busy || !valid}>
             {busy ? "Creating…" : "Create"}

@@ -11,6 +11,9 @@ import {
 } from "vanilla-jsoneditor";
 import "vanilla-jsoneditor/themes/jse-theme-dark.css";
 
+import { cn } from "@/lib/utils";
+import { useTheme } from "@/hooks/use-theme";
+
 export type EditorMode = "tree" | "text";
 
 // A function rather than a shared constant: the editor takes ownership of
@@ -39,6 +42,7 @@ export function JsonEditorField({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<JsonEditor | null>(null);
+  const { resolved } = useTheme();
 
   useEffect(() => {
     const validator = schema ? createAjvValidator({ schema }) : undefined;
@@ -66,5 +70,10 @@ export function JsonEditorField({
     editorRef.current?.updateProps({ mode: mode as unknown as Mode });
   }, [mode]);
 
-  return <div ref={containerRef} className="json-editor-host jse-theme-dark" />;
+  return (
+    <div
+      ref={containerRef}
+      className={cn("json-editor-host", resolved === "dark" && "jse-theme-dark")}
+    />
+  );
 }
