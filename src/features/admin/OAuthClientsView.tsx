@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Banner } from "@/components/common/Banner";
+import { DateTimeText } from "@/components/common/DateTime";
 import { PageHeader } from "@/components/common/PageHeader";
 import { TableSkeleton } from "@/components/common/TableSkeleton";
 import {
@@ -104,7 +105,7 @@ export function OAuthClientsView() {
                   ))}
                 </div>
               </TableCell>
-              <TableCell data-label="Created">{new Date(client.created_at).toLocaleDateString()}</TableCell>
+              <TableCell data-label="Created"><DateTimeText value={client.created_at} format="date" /></TableCell>
               <TableCell data-label="">
                 <Button size="sm" variant="destructive" onClick={() => setDeleteTarget(client)}>
                   Deregister

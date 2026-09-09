@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { DateTimeText } from "@/components/common/DateTime";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { TableSkeleton } from "@/components/common/TableSkeleton";
@@ -134,12 +135,14 @@ export function ApiKeysView() {
                   <TableCell data-label="Status">
                     <Badge variant={STATUS_VARIANT[status]}>{status}</Badge>
                   </TableCell>
-                  <TableCell data-label="Created">{new Date(key.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell data-label="Created">
+                    <DateTimeText value={key.created_at} format="date" />
+                  </TableCell>
                   <TableCell data-label="Expires">
-                    {key.expires_at ? new Date(key.expires_at).toLocaleDateString() : "Never"}
+                    <DateTimeText value={key.expires_at} format="date" fallback="Never" />
                   </TableCell>
                   <TableCell data-label="Last used">
-                    {key.last_used_at ? new Date(key.last_used_at).toLocaleString() : "Never"}
+                    <DateTimeText value={key.last_used_at} fallback="Never" />
                   </TableCell>
                   <TableCell data-label="">
                     {status !== "revoked" && (

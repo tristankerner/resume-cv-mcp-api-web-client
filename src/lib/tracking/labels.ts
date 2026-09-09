@@ -1,3 +1,4 @@
+import type { CompanyRelationship } from "@/lib/api/companies";
 import type { ApplicationStatus, CompanyRelationshipType } from "@/lib/config";
 
 // The server is the source of truth for these enums; a value the client has
@@ -39,4 +40,23 @@ export function relationshipLabel(
   otherCompanyName: string,
 ): string {
   return `${RELATIONSHIP_PHRASING[type][direction]} ${otherCompanyName}`;
+}
+
+// For annotating a company picker's options with a relationship this company
+// already has to the option — so the user doesn't walk into the
+// relationship_exists 409 by recreating an edge that's already there.
+export function existingRelationshipHint(
+  relationships: CompanyRelationship[],
+  thisCompanyId: number,
+  otherCompanyId: number,
+): string | undefined {
+  const rel = relationships.find(
+    (r) =>
+      (r.from_company_id === thisCompanyId && r.to_company_id === otherCompanyId) ||
+      (r.to_company_id === thisCompanyId && r.from_company_id === otherCompanyId),
+  );
+  if (!rel) return undefined;
+  const direction = rel.from_company_id === thisCompanyId ? "from" : "to";
+  const otherName = direction === "from" ? rel.to_company_name : rel.from_company_name;
+  return `Already: ${relationshipLabel(rel.type, direction, otherName)}`;
 }

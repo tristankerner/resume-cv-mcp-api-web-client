@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { DateText, DateTimeText } from "@/components/common/DateTime";
 import { DetailList, DetailRow } from "@/components/common/DetailList";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -19,16 +20,25 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { CompanyPicker } from "@/features/tracking/CompanyPicker";
+import {
+  ApplicationFields,
+  EMPTY_APPLICATION_DRAFT,
+  type ApplicationDraft,
+} from "@/features/tracking/fields/ApplicationFields";
+import {
+  EventFields,
+  NO_SELECTION,
+  emptyEventDraft,
+  eventDraftToStatus,
+  eventDraftValid,
+  type EventDraft,
+} from "@/features/tracking/fields/EventFields";
 import { HistoryPanel } from "@/features/tracking/HistoryPanel";
 import * as applicationsApi from "@/lib/api/applications";
 import type {
@@ -39,17 +49,13 @@ import type {
   EventMutationResponse,
 } from "@/lib/api/applications";
 import { ApiError, errorMessage } from "@/lib/api/client";
-import * as contactsApi from "@/lib/api/contacts";
-import type { Contact } from "@/lib/api/contacts";
 import { canDelete, canWrite } from "@/lib/auth/scopes";
-import { APPLICATION_STATUSES, ATTACHMENT_KINDS, type ApplicationStatus, type AttachmentKind, type DocType } from "@/lib/config";
+import { ATTACHMENT_KINDS, type ApplicationStatus, type AttachmentKind, type DocType } from "@/lib/config";
 import { applicationStatusVariant, labelFor } from "@/lib/tracking/labels";
 import { downloadBase64, encodeFile, formatBytes } from "@/lib/tracking/files";
 import { store } from "@/store/store";
 import { useStore } from "@/store/useStore";
 import { safeHref } from "@/lib/tracking/links";
-
-const NO_SELECTION = "__none__";
 
 export function ApplicationDetailView({ id }: { id: number }) {
   const { user } = useStore();
@@ -232,7 +238,7 @@ function SameJobCodeCard({ application }: { application: ApplicationDetail }) {
                   {other.job_title || "—"}
                 </TableCell>
                 <TableCell data-label="Source">{other.source || "—"}</TableCell>
-                <TableCell data-label="Submitted">{other.date_submitted || "—"}</TableCell>
+                <TableCell data-label="Submitted"><DateText value={other.date_submitted} /></TableCell>
                 <TableCell data-label="Status">
                   <Badge variant="outline">{other.status_label}</Badge>
                 </TableCell>
@@ -265,24 +271,13 @@ function DetailsCard({
   onEditToggle: (editing: boolean) => void;
   onChanged: (a: ApplicationDetail) => void;
 }) {
-  const [companyId, setCompanyId] = useState<number | null>(null);
-  const [jobTitle, setJobTitle] = useState("");
-  const [url, setUrl] = useState("");
-  const [source, setSource] = useState("");
-  const [system, setSystem] = useState("");
-  const [dateSubmitted, setDateSubmitted] = useState("");
-  const [resumeLabel, setResumeLabel] = useState("");
+  const [draft, setDraft] = useState<ApplicationDraft>(EMPTY_APPLICATION_DRAFT);
   const [resumeDocName, setResumeDocName] = useState("");
   const [resumeDocRevision, setResumeDocRevision] = useState("");
   const [metadataDocName, setMetadataDocName] = useState("");
   const [metadataDocRevision, setMetadataDocRevision] = useState("");
   const [skillDocName, setSkillDocName] = useState("");
   const [skillDocRevision, setSkillDocRevision] = useState("");
-  const [initialPromptText, setInitialPromptText] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
-  const [jobCode, setJobCode] = useState("");
-  const [manuallyModified, setManuallyModified] = useState(false);
-  const [modificationNote, setModificationNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -291,31 +286,34 @@ function DetailsCard({
   // than in a click handler local to this card.
   useEffect(() => {
     if (!editing) return;
-    setCompanyId(application.company_id);
-    setJobTitle(application.job_title ?? "");
-    setJobCode(application.job_code ?? "");
-    setUrl(application.url ?? "");
-    setSource(application.source ?? "");
-    setSystem(application.system ?? "");
-    setDateSubmitted(application.date_submitted ?? "");
-    setResumeLabel(application.resume_label ?? "");
+    setDraft({
+      company_id: application.company_id,
+      company_name: application.company_name,
+      job_title: application.job_title ?? "",
+      job_code: application.job_code ?? "",
+      url: application.url ?? "",
+      source: application.source ?? "",
+      system: application.system ?? "",
+      date_submitted: application.date_submitted ?? "",
+      resume_label: application.resume_label ?? "",
+      initial_prompt_text: application.initial_prompt_text ?? "",
+      job_description: application.job_description ?? "",
+      manually_modified: application.manually_modified,
+      modification_note: application.modification_note ?? "",
+    });
     setResumeDocName(application.resume_document?.name ?? "");
     setResumeDocRevision(application.resume_document ? String(application.resume_document.revision_id) : "");
     setMetadataDocName(application.metadata_document?.name ?? "");
     setMetadataDocRevision(application.metadata_document ? String(application.metadata_document.revision_id) : "");
     setSkillDocName(application.skill_document?.name ?? "");
     setSkillDocRevision(application.skill_document ? String(application.skill_document.revision_id) : "");
-    setInitialPromptText(application.initial_prompt_text ?? "");
-    setJobDescription(application.job_description ?? "");
-    setManuallyModified(application.manually_modified);
-    setModificationNote(application.modification_note ?? "");
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
 
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (companyId === null) return;
+    if (draft.company_id === null) return;
     setBusy(true);
     setError(null);
     const resumeRef = resolveDocRef(resumeDocName, resumeDocRevision, application.resume_document);
@@ -323,18 +321,18 @@ function DetailsCard({
     const skillRef = resolveDocRef(skillDocName, skillDocRevision, application.skill_document);
     try {
       const updated = await applicationsApi.updateApplication(application.id, {
-        company_id: companyId,
-        job_title: jobTitle.trim() || null,
-        job_code: jobCode.trim() || null,
-        url: url.trim() || null,
-        source: source.trim() || null,
-        system: system.trim() || null,
-        date_submitted: dateSubmitted || null,
-        resume_label: resumeLabel.trim() || null,
-        initial_prompt_text: initialPromptText.trim() || null,
-        job_description: jobDescription.trim() || null,
-        manually_modified: manuallyModified,
-        modification_note: manuallyModified ? modificationNote.trim() || null : null,
+        company_id: draft.company_id,
+        job_title: draft.job_title.trim() || null,
+        job_code: draft.job_code.trim() || null,
+        url: draft.url.trim() || null,
+        source: draft.source.trim() || null,
+        system: draft.system.trim() || null,
+        date_submitted: draft.date_submitted || null,
+        resume_label: draft.resume_label.trim() || null,
+        initial_prompt_text: draft.initial_prompt_text.trim() || null,
+        job_description: draft.job_description.trim() || null,
+        manually_modified: draft.manually_modified,
+        modification_note: draft.manually_modified ? draft.modification_note.trim() || null : null,
         ...(resumeRef ? { resume_document_name: resumeRef.name, resume_revision_id: resumeRef.revision } : {}),
         ...(metadataRef
           ? { metadata_document_name: metadataRef.name, metadata_revision_id: metadataRef.revision }
@@ -360,62 +358,13 @@ function DetailsCard({
         <Banner kind="error">{error}</Banner>
         {editing ? (
           <form onSubmit={save} className="space-y-4">
-            <Field>
-              <FieldLabel>Company</FieldLabel>
-              <CompanyPicker
-                value={companyId}
-                valueLabel={application.company_name}
-                onChange={(companyIdValue) => setCompanyId(companyIdValue)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="edit-app-title">Job title</FieldLabel>
-              <Input id="edit-app-title" value={jobTitle} onChange={(e) => setJobTitle(e.currentTarget.value)} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="edit-app-code">Job code</FieldLabel>
-              <Input
-                id="edit-app-code"
-                value={jobCode}
-                onChange={(e) => setJobCode(e.currentTarget.value)}
-                placeholder="REQ-12345"
-              />
-              <FieldDescription>
-                The requisition code, if the posting or recruiter gives one. Matching ignores
-                case and separators, so there is no need to tidy it up.
-              </FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="edit-app-url">URL</FieldLabel>
-              <Input id="edit-app-url" type="url" value={url} onChange={(e) => setUrl(e.currentTarget.value)} />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="edit-app-source">Source</FieldLabel>
-                <Input id="edit-app-source" value={source} onChange={(e) => setSource(e.currentTarget.value)} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="edit-app-system">System</FieldLabel>
-                <Input id="edit-app-system" value={system} onChange={(e) => setSystem(e.currentTarget.value)} />
-              </Field>
-            </div>
-            <Field>
-              <FieldLabel htmlFor="edit-app-date">Date submitted</FieldLabel>
-              <Input
-                id="edit-app-date"
-                type="date"
-                value={dateSubmitted}
-                onChange={(e) => setDateSubmitted(e.currentTarget.value)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="edit-app-resume-label">Resume label</FieldLabel>
-              <Input
-                id="edit-app-resume-label"
-                value={resumeLabel}
-                onChange={(e) => setResumeLabel(e.currentTarget.value)}
-              />
-            </Field>
+            <ApplicationFields
+              value={draft}
+              onChange={setDraft}
+              disabled={busy}
+              idPrefix="edit-app"
+              hide={["prompt", "description", "manually_modified"]}
+            />
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-sm font-medium">Document references</p>
               <p className="text-sm text-muted-foreground">
@@ -461,41 +410,15 @@ function DetailsCard({
                 />
               </div>
             </div>
-            <Field>
-              <FieldLabel htmlFor="edit-app-prompt">Initial prompt text</FieldLabel>
-              <Textarea
-                id="edit-app-prompt"
-                value={initialPromptText}
-                onChange={(e) => setInitialPromptText(e.currentTarget.value)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="edit-app-description">Job description</FieldLabel>
-              <Textarea
-                id="edit-app-description"
-                className="min-h-40"
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.currentTarget.value)}
-              />
-            </Field>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="edit-app-manual" className="mb-0">
-                Manually modified
-              </Label>
-              <Switch id="edit-app-manual" checked={manuallyModified} onCheckedChange={setManuallyModified} />
-            </div>
-            {manuallyModified && (
-              <Field>
-                <FieldLabel htmlFor="edit-app-mod-note">Modification note</FieldLabel>
-                <Textarea
-                  id="edit-app-mod-note"
-                  value={modificationNote}
-                  onChange={(e) => setModificationNote(e.currentTarget.value)}
-                />
-              </Field>
-            )}
+            <ApplicationFields
+              value={draft}
+              onChange={setDraft}
+              disabled={busy}
+              idPrefix="edit-app"
+              hide={["company", "job_title", "job_code", "url", "source", "system", "date_submitted", "resume_label"]}
+            />
             <div className="flex gap-3">
-              <Button type="submit" disabled={busy || companyId === null}>
+              <Button type="submit" disabled={busy || draft.company_id === null}>
                 {busy ? "Saving…" : "Save"}
               </Button>
               <Button type="button" variant="outline" onClick={() => onEditToggle(false)} disabled={busy}>
@@ -546,7 +469,7 @@ function DetailsCard({
             </DetailRow>
             <DetailRow label="Source">{application.source || "—"}</DetailRow>
             <DetailRow label="System">{application.system || "—"}</DetailRow>
-            <DetailRow label="Date submitted">{application.date_submitted || "—"}</DetailRow>
+            <DetailRow label="Date submitted"><DateText value={application.date_submitted} /></DetailRow>
             <DetailRow label="Status">
               <Badge variant={applicationStatusVariant(application.status)}>{application.status_label}</Badge>
               <span className="ml-2 text-xs text-muted-foreground">Set by the most recent event.</span>
@@ -587,35 +510,38 @@ function EventsCard({
 }) {
   const { user } = useStore();
   const writable = canWrite(user, "applications");
-  const [showAdd, setShowAdd] = useState(false);
   const [editTarget, setEditTarget] = useState<ApplicationEvent | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApplicationEvent | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [contacts, setContacts] = useState<Contact[]>([]);
 
-  useEffect(() => {
-    contactsApi.listContacts({ company_id: application.company_id, limit: 200 }).then(
-      (resp) => setContacts(resp.data),
-      () => {},
-    );
-  }, [application.company_id]);
-
-  function applyMutation(resp: EventMutationResponse, removedId?: number) {
-    let events = application.events;
-    if (removedId !== undefined) {
-      events = events.filter((e) => e.id !== removedId);
-    } else if (resp.event) {
-      const exists = events.some((e) => e.id === resp.event!.id);
-      events = exists ? events.map((e) => (e.id === resp.event!.id ? resp.event! : e)) : [resp.event, ...events];
-    }
+  function applyEvent(event: ApplicationEvent, status: ApplicationStatus, statusLabel: string, statusChangedAt: string | null) {
+    const events = application.events.some((e) => e.id === event.id)
+      ? application.events.map((e) => (e.id === event.id ? event : e))
+      : [event, ...application.events];
     onChanged({
       ...application,
       events,
-      status: resp.application_status,
-      status_label: resp.application_status_label,
-      status_changed_at: resp.application_status_changed_at,
+      status,
+      status_label: statusLabel,
+      status_changed_at: statusChangedAt,
       event_count: events.length,
     });
+  }
+
+  function applyMutation(resp: EventMutationResponse, removedId?: number) {
+    if (removedId !== undefined) {
+      const events = application.events.filter((e) => e.id !== removedId);
+      onChanged({
+        ...application,
+        events,
+        status: resp.application_status,
+        status_label: resp.application_status_label,
+        status_changed_at: resp.application_status_changed_at,
+        event_count: events.length,
+      });
+      return;
+    }
+    if (resp.event) applyEvent(resp.event, resp.application_status, resp.application_status_label, resp.application_status_changed_at);
   }
 
   async function doDelete() {
@@ -636,7 +562,22 @@ function EventsCard({
         <CardTitle>Events</CardTitle>
         {writable && (
           <CardAction>
-            <Button size="sm" variant="outline" onClick={() => setShowAdd(true)}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                store.openEventComposer({
+                  applicationId: application.id,
+                  onCreated: (result) =>
+                    applyEvent(
+                      result.event,
+                      result.applicationStatus,
+                      result.applicationStatusLabel,
+                      result.applicationStatusChangedAt,
+                    ),
+                })
+              }
+            >
               Add event
             </Button>
           </CardAction>
@@ -655,7 +596,7 @@ function EventsCard({
                       {event.status && (
                         <Badge variant={applicationStatusVariant(event.status)}>{event.status_label}</Badge>
                       )}
-                      <span className="text-muted-foreground">{new Date(event.occurred_at).toLocaleString()}</span>
+                      <span className="text-muted-foreground"><DateTimeText value={event.occurred_at} /></span>
                       {event.rating != null && <span className="text-muted-foreground">{event.rating}/10</span>}
                       {event.contact_name && <span className="text-muted-foreground">{event.contact_name}</span>}
                     </ItemTitle>
@@ -682,20 +623,9 @@ function EventsCard({
         )}
       </CardContent>
 
-      {showAdd && (
-        <EventDialog
-          contacts={contacts}
-          onClose={() => setShowAdd(false)}
-          onSubmit={async (body) => {
-            const resp = await applicationsApi.createEvent(application.id, body);
-            applyMutation(resp);
-            setShowAdd(false);
-          }}
-        />
-      )}
       {editTarget && (
         <EventDialog
-          contacts={contacts}
+          applicationId={application.id}
           initial={editTarget}
           onClose={() => setEditTarget(null)}
           onSubmit={async (body) => {
@@ -730,27 +660,32 @@ function EventsCard({
 }
 
 function EventDialog({
-  contacts,
+  applicationId,
   initial,
   onClose,
   onSubmit,
 }: {
-  contacts: Contact[];
+  applicationId: number;
   initial?: ApplicationEvent;
   onClose: () => void;
   onSubmit: (body: applicationsApi.CreateEventRequest) => Promise<void>;
 }) {
-  const [status, setStatus] = useState<string>(initial?.status ?? NO_SELECTION);
-  const [occurredAt, setOccurredAt] = useState(
-    initial ? initial.occurred_at.slice(0, 16) : new Date().toISOString().slice(0, 16),
+  const [draft, setDraft] = useState<EventDraft>(() =>
+    initial
+      ? {
+          status: initial.status ?? NO_SELECTION,
+          occurred_at: initial.occurred_at,
+          contact_id: initial.contact_id,
+          contact_label: initial.contact_name ?? "",
+          rating: initial.rating != null ? String(initial.rating) : NO_SELECTION,
+          description: initial.description ?? "",
+        }
+      : emptyEventDraft(),
   );
-  const [contactId, setContactId] = useState(initial?.contact_id != null ? String(initial.contact_id) : NO_SELECTION);
-  const [rating, setRating] = useState(initial?.rating != null ? String(initial.rating) : NO_SELECTION);
-  const [description, setDescription] = useState(initial?.description ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const valid = status !== NO_SELECTION || description.trim() !== "" || rating !== NO_SELECTION;
+  const valid = eventDraftValid(draft);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -762,11 +697,11 @@ function EventDialog({
     setError(null);
     try {
       await onSubmit({
-        status: status === NO_SELECTION ? null : (status as ApplicationStatus),
-        contact_id: contactId === NO_SELECTION ? null : Number(contactId),
-        description: description.trim() || null,
-        rating: rating === NO_SELECTION ? null : Number(rating),
-        occurred_at: occurredAt.length === 16 ? `${occurredAt}:00` : occurredAt,
+        status: eventDraftToStatus(draft.status),
+        contact_id: draft.contact_id,
+        description: draft.description.trim() || null,
+        rating: draft.rating === NO_SELECTION ? null : Number(draft.rating),
+        occurred_at: draft.occurred_at,
       });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) return;
@@ -784,71 +719,7 @@ function EventDialog({
             <DialogTitle>{initial ? "Edit event" : "Add event"}</DialogTitle>
           </DialogHeader>
           <Banner kind="error">{error}</Banner>
-          <Field>
-            <FieldLabel htmlFor="event-status">Status</FieldLabel>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger id="event-status" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_SELECTION}>— no status change —</SelectItem>
-                {APPLICATION_STATUSES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="event-occurred">Occurred at</FieldLabel>
-            <Input
-              id="event-occurred"
-              type="datetime-local"
-              value={occurredAt}
-              onChange={(e) => setOccurredAt(e.currentTarget.value)}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="event-contact">Contact</FieldLabel>
-            <Select value={contactId} onValueChange={setContactId}>
-              <SelectTrigger id="event-contact" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_SELECTION}>— none —</SelectItem>
-                {contacts.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {[c.last_name, c.first_name].filter(Boolean).join(", ") || c.email || `Contact #${c.id}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="event-rating">Rating</FieldLabel>
-            <Select value={rating} onValueChange={setRating}>
-              <SelectTrigger id="event-rating" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_SELECTION}>— none —</SelectItem>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="event-description">Description</FieldLabel>
-            <Textarea
-              id="event-description"
-              value={description}
-              onChange={(e) => setDescription(e.currentTarget.value)}
-            />
-          </Field>
+          <EventFields value={draft} onChange={setDraft} disabled={busy} applicationId={applicationId} modal />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
               Cancel
@@ -966,7 +837,7 @@ function AttachmentsCard({
                     {a.filename}
                   </TableCell>
                   <TableCell data-label="Size">{formatBytes(a.byte_size)}</TableCell>
-                  <TableCell data-label="Uploaded">{new Date(a.created_at).toLocaleString()}</TableCell>
+                  <TableCell data-label="Uploaded"><DateTimeText value={a.created_at} /></TableCell>
                   <TableCell data-label="">
                     <ButtonGroup>
                       <Button size="sm" variant="outline" onClick={() => download(a)}>

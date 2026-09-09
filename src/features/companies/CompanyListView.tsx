@@ -1,9 +1,13 @@
 import { SearchIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 import { Banner } from "@/components/common/Banner";
 import { DataTableFooter } from "@/components/common/DataTableFooter";
 import { EmptyState } from "@/components/common/EmptyState";
+import { EditableCell } from "@/components/common/inline/EditableCell";
+import { TextEditor } from "@/components/common/inline/editors/TextEditor";
+import { UrlEditor } from "@/components/common/inline/editors/UrlEditor";
+import { useInlineEdit } from "@/components/common/inline/useInlineEdit";
 import { PageHeader } from "@/components/common/PageHeader";
 import { TableSkeleton } from "@/components/common/TableSkeleton";
 import { Button } from "@/components/ui/button";
@@ -27,6 +31,16 @@ export function CompanyListView() {
   const { query, sort, offset } = companiesList;
   const [result, setResult] = useState<ListEnvelope<CompanySummary> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { commit } = useInlineEdit<CompanySummary>();
+  const writable = canWrite(user, "companies");
+
+  const setRows: Dispatch<SetStateAction<CompanySummary[]>> = (update) => {
+    setResult((prev) => {
+      if (!prev) return prev;
+      const nextData = typeof update === "function" ? (update as (p: CompanySummary[]) => CompanySummary[])(prev.data) : update;
+      return { ...prev, data: nextData };
+    });
+  };
 
   useEffect(() => {
     const handle = setTimeout(load, 300);
@@ -116,21 +130,58 @@ export function CompanyListView() {
             <TableBody>
               {result.data.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell data-label="Name">{c.name}</TableCell>
-                  <TableCell data-label="Website">
-                    {safeHref(c.website) ? (
-                      <a
-                        href={safeHref(c.website)}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="text-primary underline underline-offset-4"
-                      >
-                        {c.website}
-                      </a>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
+                  <EditableCell<string>
+                    value={c.name}
+                    editable={writable}
+                    ariaLabel={`Edit name for ${c.name}`}
+                    dataLabel="Name"
+                    display={c.name}
+                    renderEditor={(props) => <TextEditor {...props} />}
+                    onCommit={(value, force) =>
+                      commit({
+                        rowId: c.id,
+                        getId: (r) => r.id,
+                        setRows,
+                        previousValues: { name: c.name },
+                        optimisticValues: { name: value },
+                        patch: (id, body) => companiesApi.updateCompany(id, body),
+                        body: { name: value.trim(), confirm_create_duplicate: !!force },
+                      })
+                    }
+                    onOpenCandidate={(id) => store.navigate("company", { id })}
+                  />
+                  <EditableCell<string>
+                    value={c.website ?? ""}
+                    editable={writable}
+                    ariaLabel={`Edit website for ${c.name}`}
+                    dataLabel="Website"
+                    display={
+                      safeHref(c.website) ? (
+                        <a
+                          href={safeHref(c.website)}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="text-primary underline underline-offset-4"
+                        >
+                          {c.website}
+                        </a>
+                      ) : (
+                        "—"
+                      )
+                    }
+                    renderEditor={(props) => <UrlEditor {...props} />}
+                    onCommit={(value) =>
+                      commit({
+                        rowId: c.id,
+                        getId: (r) => r.id,
+                        setRows,
+                        previousValues: { website: c.website },
+                        optimisticValues: { website: value.trim() || null },
+                        patch: (id, body) => companiesApi.updateCompany(id, body),
+                        body: { website: value.trim() || null },
+                      })
+                    }
+                  />
                   <TableCell data-label="Applications">{c.application_count}</TableCell>
                   <TableCell data-label="Contacts">{c.contact_count}</TableCell>
                   <TableCell data-label="">

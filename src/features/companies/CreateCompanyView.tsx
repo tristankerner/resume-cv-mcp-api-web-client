@@ -3,20 +3,15 @@ import { type FormEvent, useState } from "react";
 import { Banner } from "@/components/common/Banner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { DuplicateWarning } from "@/features/tracking/DuplicateWarning";
+import { CompanyFields, EMPTY_COMPANY_DRAFT, type CompanyDraft } from "@/features/tracking/fields/CompanyFields";
 import * as companiesApi from "@/lib/api/companies";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { asDuplicateConflict, type DuplicateConflict } from "@/lib/api/tracking";
 import { store } from "@/store/store";
 
 export function CreateCompanyView() {
-  const [name, setName] = useState("");
-  const [website, setWebsite] = useState("");
-  const [description, setDescription] = useState("");
-  const [personalNote, setPersonalNote] = useState("");
+  const [draft, setDraft] = useState<CompanyDraft>(EMPTY_COMPANY_DRAFT);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<DuplicateConflict | null>(null);
   const [busy, setBusy] = useState(false);
@@ -27,10 +22,10 @@ export function CreateCompanyView() {
     setBusy(true);
     try {
       const created = await companiesApi.createCompany({
-        name: name.trim(),
-        website: website.trim() || null,
-        description: description.trim() || null,
-        personal_note: personalNote.trim() || null,
+        name: draft.name.trim(),
+        website: draft.website.trim() || null,
+        description: draft.description.trim() || null,
+        personal_note: draft.personal_note.trim() || null,
         confirm_create_duplicate: force,
       });
       store.navigate("company", { id: created.id });
@@ -68,38 +63,9 @@ export function CreateCompanyView() {
         }}
         className="space-y-4"
       >
-        <Field>
-          <FieldLabel htmlFor="company-name">Name</FieldLabel>
-          <Input id="company-name" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="company-website">Website</FieldLabel>
-          <Input
-            id="company-website"
-            type="url"
-            placeholder="https://…"
-            value={website}
-            onChange={(e) => setWebsite(e.currentTarget.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="company-description">Description</FieldLabel>
-          <Textarea
-            id="company-description"
-            value={description}
-            onChange={(e) => setDescription(e.currentTarget.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="company-note">Personal note</FieldLabel>
-          <Textarea
-            id="company-note"
-            value={personalNote}
-            onChange={(e) => setPersonalNote(e.currentTarget.value)}
-          />
-        </Field>
+        <CompanyFields value={draft} onChange={setDraft} disabled={busy} />
         <div className="flex gap-3">
-          <Button type="submit" disabled={busy || !name.trim()}>
+          <Button type="submit" disabled={busy || !draft.name.trim()}>
             {busy ? "Creating…" : "Create"}
           </Button>
           <Button type="button" variant="outline" onClick={() => store.navigate("companies")}>

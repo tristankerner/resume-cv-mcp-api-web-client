@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 
+import { DateTimeText } from "@/components/common/DateTime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DiffTable } from "@/features/documents/DiffTable";
+import { DocumentDiffView } from "@/features/documents/DocumentDiffView";
 import type { DocumentRevision } from "@/lib/api/documents";
 import type { JsonValue } from "@/lib/documents/diff";
-import { diffDocuments, prettyJson } from "@/lib/documents/diff";
+import { diffDocuments } from "@/lib/documents/diff";
 
 // A side of the comparison is either a saved revision or the working copy in
 // the editor above — the one side that is not in `revisions`. The newest
@@ -94,6 +96,7 @@ export function RevisionPanel({
 }) {
   const [compareLeft, setCompareLeft] = useState<CompareTarget | null>(null);
   const [compareRight, setCompareRight] = useState<CompareTarget | null>(null);
+  const [compareMode, setCompareMode] = useState<"changes" | "diff">("diff");
 
   const comparison = useMemo(() => {
     if (compareLeft === null || compareRight === null) return null;
@@ -170,7 +173,7 @@ export function RevisionPanel({
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell data-label="Created">{new Date(rev.created_at).toLocaleString()}</TableCell>
+                <TableCell data-label="Created"><DateTimeText value={rev.created_at} /></TableCell>
                 <TableCell data-label="Note" className="max-w-[40ch] truncate" title={rev.revision_note || undefined}>
                   {rev.revision_note || "—"}
                 </TableCell>
@@ -202,25 +205,35 @@ export function RevisionPanel({
 
         {comparison !== null && (
           <div className="mt-4">
-            <h4 className="mb-2 font-medium">
-              Comparing {targetLabel(compareLeft)} → {targetLabel(compareRight)}
-            </h4>
-            <DiffTable rows={comparison.rows} />
-            <Collapsible className="mt-3">
-              <CollapsibleTrigger className="cursor-pointer text-sm text-muted-foreground underline underline-offset-4">
-                Raw JSON side by side
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="mt-2 flex flex-col gap-3 md:flex-row">
-                  <pre className="min-w-0 flex-1 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words max-h-[400px]">
-                    {prettyJson(comparison.left)}
-                  </pre>
-                  <pre className="min-w-0 flex-1 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words max-h-[400px]">
-                    {prettyJson(comparison.right)}
-                  </pre>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h4 className="font-medium">
+                Comparing {targetLabel(compareLeft)} → {targetLabel(compareRight)}
+              </h4>
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                size="sm"
+                value={compareMode}
+                onValueChange={(v) => v && setCompareMode(v as "changes" | "diff")}
+              >
+                <ToggleGroupItem value="changes" aria-label="Changes mode">
+                  Changes
+                </ToggleGroupItem>
+                <ToggleGroupItem value="diff" aria-label="Diff mode">
+                  Diff
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            {compareMode === "changes" ? (
+              <DiffTable rows={comparison.rows} />
+            ) : (
+              <DocumentDiffView
+                left={comparison.left}
+                right={comparison.right}
+                leftLabel={targetLabel(compareLeft)}
+                rightLabel={targetLabel(compareRight)}
+              />
+            )}
           </div>
         )}
       </CardContent>

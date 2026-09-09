@@ -39,6 +39,16 @@ export function me() {
   return request<User>("GET", "/users/me");
 }
 
+export interface UpdateUserRequest {
+  timezone?: string | null;
+}
+
+// A user may set their own timezone without `users:admin` — see Appendix
+// A.2 of the feature plan.
+export function updateUser(userId: number, body: UpdateUserRequest) {
+  return request<User>("PATCH", `/users/${userId}`, { body });
+}
+
 export interface ChangePasswordRequest {
   current_password: string;
   new_password: string;

@@ -1,4 +1,4 @@
-import { Briefcase, Building2, Users } from "lucide-react";
+import { Briefcase, Building2, PlusIcon, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -13,7 +13,7 @@ import {
 import * as applicationsApi from "@/lib/api/applications";
 import * as companiesApi from "@/lib/api/companies";
 import * as contactsApi from "@/lib/api/contacts";
-import { canRead } from "@/lib/auth/scopes";
+import { canRead, canWrite } from "@/lib/auth/scopes";
 import { store } from "@/store/store";
 import { visibleNavGroups } from "@/store/navItems";
 import { useStore } from "@/store/useStore";
@@ -82,7 +82,10 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     .filter((group) => group.items.length > 0);
   const hasSearchResults =
     results.applications.length > 0 || results.companies.length > 0 || results.contacts.length > 0;
-  const hasAnyResults = navGroups.length > 0 || hasSearchResults;
+  // Not a NavItem — it doesn't navigate to a View — so it isn't sourced from
+  // navItems.ts like the groups above; gated the same way the header button is.
+  const showNewEvent = canWrite(user, "applications") && "new event".includes(trimmedQuery);
+  const hasAnyResults = navGroups.length > 0 || hasSearchResults || showNewEvent;
 
   return (
     <CommandDialog
@@ -95,6 +98,19 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       <CommandInput placeholder="Go to a page, or search…" value={query} onValueChange={setQuery} />
       <CommandList>
         <CommandEmpty>{hasAnyResults ? null : "No results found."}</CommandEmpty>
+        {showNewEvent && (
+          <CommandGroup heading="Actions">
+            <CommandItem
+              onSelect={() => {
+                store.openEventComposer();
+                onOpenChange(false);
+              }}
+            >
+              <PlusIcon />
+              New event
+            </CommandItem>
+          </CommandGroup>
+        )}
         {navGroups.map((group) => (
           <CommandGroup key={group.group || "secondary"} heading={group.group || "Go to"}>
             {group.items.map((item) => (

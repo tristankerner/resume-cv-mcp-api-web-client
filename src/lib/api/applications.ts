@@ -122,7 +122,7 @@ export interface CreateApplicationRequest {
   confirm_create_duplicate?: boolean;
 }
 
-export type UpdateApplicationRequest = Omit<CreateApplicationRequest, "company_id" | "confirm_create_duplicate"> & {
+export type UpdateApplicationRequest = Omit<CreateApplicationRequest, "company_id"> & {
   company_id?: number;
 };
 
@@ -165,6 +165,37 @@ export function deleteApplication(applicationId: number) {
 
 export function listEvents(applicationId: number) {
   return request<ListEnvelope<ApplicationEvent>>("GET", `/applications/${applicationId}/events`);
+}
+
+// A contact tagged with its distance from the application's own company —
+// depth 0 is that company, 1-3 are hops through company_relationships in
+// either direction, `via` names the chain. Used to offer recruiters and
+// other related-company contacts as event participants, not just people at
+// the company the application itself is filed under.
+export interface ContactOption {
+  id: number;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  rating: number | null;
+  company_id: number;
+  company_name: string;
+  depth: number;
+  via: string | null;
+}
+
+export interface ListContactOptionsParams {
+  query?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export function listContactOptions(applicationId: number, params: ListContactOptionsParams = {}) {
+  return request<ListEnvelope<ContactOption>>(
+    "GET",
+    `/applications/${applicationId}/contact-options${buildQuery({ ...params })}`,
+  );
 }
 
 export function createEvent(applicationId: number, body: CreateEventRequest) {

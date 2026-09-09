@@ -1,6 +1,17 @@
+import type { ComposerResult } from "@/features/tracking/EventComposer";
 import type { Session } from "@/lib/auth/session";
 import type { User } from "@/lib/auth/scopes";
 import type { ApplicationStatus } from "@/lib/config";
+
+// What opens the New Event composer with. The composer is mounted once at
+// the app shell; any page can open it by seeding this rather than mounting
+// its own copy.
+export interface ComposerSeed {
+  applicationId?: number;
+  companyId?: number;
+  contactId?: number;
+  onCreated?: (result: ComposerResult) => void;
+}
 
 export type View =
   | "documents"
@@ -105,6 +116,7 @@ export interface StoreState {
   companiesList: CompaniesListState;
   contactsList: ContactsListState;
   apiKeysList: ApiKeysListState;
+  composer: ComposerSeed | null;
 }
 
 type Listener = () => void;
@@ -125,6 +137,7 @@ class Store {
     companiesList: DEFAULT_COMPANIES_LIST_STATE,
     contactsList: DEFAULT_CONTACTS_LIST_STATE,
     apiKeysList: DEFAULT_API_KEYS_LIST_STATE,
+    composer: null,
   };
 
   listeners = new Set<Listener>();
@@ -158,6 +171,14 @@ class Store {
     this.set((s) => ({ apiKeysList: { ...s.apiKeysList, ...patch } }));
   }
 
+  openEventComposer(seed: ComposerSeed = {}): void {
+    this.set({ composer: seed });
+  }
+
+  closeEventComposer(): void {
+    this.set({ composer: null });
+  }
+
   // Called alongside every session clear (manual log out, forced 401) so a
   // new login — possibly as a different user with different scopes — never
   // inherits stale filters.
@@ -167,6 +188,7 @@ class Store {
       companiesList: DEFAULT_COMPANIES_LIST_STATE,
       contactsList: DEFAULT_CONTACTS_LIST_STATE,
       apiKeysList: DEFAULT_API_KEYS_LIST_STATE,
+      composer: null,
     });
   }
 

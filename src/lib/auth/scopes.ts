@@ -10,6 +10,7 @@ export interface User {
   roles: string[];
   scopes: string[];
   mfa_enrolled: boolean;
+  timezone: string | null;
 }
 
 // Scope gating — UserDto.scopes drives what the UI offers, rather than

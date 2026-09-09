@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "react-diff-view/style/index.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -215,4 +216,37 @@
     text-transform: uppercase;
     letter-spacing: 0.02em;
   }
+}
+
+/* react-diff-view theming — the library ships hardcoded light-mode colors
+   via its own `--diff-*` custom properties (see the imported stylesheet
+   above); this block is the only place those get touched, so a later
+   `npm update` diff stays legible. Each override is expressed in terms of
+   this app's own tokens, so light/dark both fall out of the same rules —
+   no separate `.dark` block needed here. */
+.diff {
+  --diff-background-color: var(--card);
+  --diff-text-color: var(--card-foreground);
+  --diff-font-family: var(--font-mono);
+  --diff-selection-background-color: var(--accent);
+  --diff-selection-text-color: var(--accent-foreground);
+
+  --diff-gutter-insert-background-color: color-mix(in oklab, var(--success) 30%, var(--muted));
+  --diff-gutter-delete-background-color: color-mix(in oklab, var(--destructive) 30%, var(--muted));
+  --diff-gutter-selected-background-color: var(--muted);
+  --diff-gutter-selected-text-color: var(--muted-foreground);
+
+  --diff-code-insert-background-color: color-mix(in oklab, var(--success) 14%, var(--card));
+  --diff-code-delete-background-color: color-mix(in oklab, var(--destructive) 14%, var(--card));
+  /* Word-level edit highlight — a stronger tint of the same hue. */
+  --diff-code-insert-edit-background-color: color-mix(in oklab, var(--success) 40%, var(--card));
+  --diff-code-delete-edit-background-color: color-mix(in oklab, var(--destructive) 40%, var(--card));
+  --diff-code-selected-background-color: var(--muted);
+
+  --diff-omit-gutter-line-color: var(--border);
+}
+
+.diff-gutter {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
 }

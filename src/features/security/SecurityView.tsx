@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
 import { ConfirmPasswordDialog } from "@/components/common/ConfirmPasswordDialog";
+import { DateTimeText } from "@/components/common/DateTime";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -84,9 +85,11 @@ export function SecurityView() {
                 <TableCell data-label="Method">
                   <Badge variant="outline">{mfaApi.mfaKindLabel(cred.kind)}</Badge>
                 </TableCell>
-                <TableCell data-label="Added">{new Date(cred.created_at).toLocaleDateString()}</TableCell>
+                <TableCell data-label="Added">
+                  <DateTimeText value={cred.created_at} format="date" />
+                </TableCell>
                 <TableCell data-label="Last used">
-                  {cred.last_used_at ? new Date(cred.last_used_at).toLocaleString() : "Never"}
+                  <DateTimeText value={cred.last_used_at} fallback="Never" />
                 </TableCell>
                 <TableCell data-label="Remaining">{cred.remaining === null ? "—" : cred.remaining}</TableCell>
                 <TableCell data-label="">

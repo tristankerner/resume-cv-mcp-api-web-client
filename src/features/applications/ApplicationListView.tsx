@@ -1,9 +1,15 @@
 import { SearchIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 
 import { Banner } from "@/components/common/Banner";
 import { DataTableFooter } from "@/components/common/DataTableFooter";
+import { DateText } from "@/components/common/DateTime";
 import { EmptyState } from "@/components/common/EmptyState";
+import { EditableCell } from "@/components/common/inline/EditableCell";
+import { CompanyEditor } from "@/components/common/inline/editors/CompanyEditor";
+import { DateEditor } from "@/components/common/inline/editors/DateEditor";
+import { TextEditor } from "@/components/common/inline/editors/TextEditor";
+import { useInlineEdit } from "@/components/common/inline/useInlineEdit";
 import { PageHeader } from "@/components/common/PageHeader";
 import { TableSkeleton } from "@/components/common/TableSkeleton";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +42,17 @@ export function ApplicationListView() {
   const [companies, setCompanies] = useState<CompanySummary[]>([]);
   const [result, setResult] = useState<ListEnvelope<ApplicationSummary> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { commit } = useInlineEdit<ApplicationSummary>();
+  const writable = canWrite(user, "applications");
+
+  const setRows: Dispatch<SetStateAction<ApplicationSummary[]>> = (update) => {
+    setResult((prev) => {
+      if (!prev) return prev;
+      const nextData =
+        typeof update === "function" ? (update as (p: ApplicationSummary[]) => ApplicationSummary[])(prev.data) : update;
+      return { ...prev, data: nextData };
+    });
+  };
 
   useEffect(() => {
     companiesApi.listCompanies({ limit: 200 }).then(
@@ -228,37 +245,146 @@ export function ApplicationListView() {
             <TableBody>
               {result.data.map((app) => (
                 <TableRow key={app.id}>
-                  <TableCell data-label="Company">{app.company_name}</TableCell>
-                  <TableCell data-label="Job title" className="whitespace-normal">
-                    {app.job_title || "—"}
-                  </TableCell>
-                  <TableCell data-label="Job code">
-                    {app.job_code ? (
-                      <span className="flex flex-wrap items-center gap-1.5">
-                        <code className="rounded bg-muted px-1 py-0.5 text-xs">{app.job_code}</code>
-                        {app.job_code_match_count > 0 && (
-                          <Badge
-                            variant="warning"
-                            title={
-                              "This job code is on " +
-                              (app.job_code_match_count + 1) +
-                              " applications — the same job has reached you more than once."
-                            }
-                          >
-                            +{app.job_code_match_count}
-                          </Badge>
-                        )}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
+                  <EditableCell<number | null>
+                    value={app.company_id}
+                    editable={writable}
+                    ariaLabel={`Edit company for ${app.job_title || "application"}`}
+                    dataLabel="Company"
+                    display={app.company_name}
+                    renderEditor={(props) => <CompanyEditor {...props} valueLabel={app.company_name} />}
+                    onCommit={(value) =>
+                      commit({
+                        rowId: app.id,
+                        getId: (r) => r.id,
+                        setRows,
+                        previousValues: { company_id: app.company_id, company_name: app.company_name },
+                        optimisticValues: value != null ? { company_id: value } : {},
+                        patch: (id, body) => applicationsApi.updateApplication(id, body),
+                        body: { company_id: value ?? undefined },
+                      })
+                    }
+                    onOpenCandidate={(id) => store.navigate("company", { id })}
+                  />
+                  <EditableCell<string>
+                    value={app.job_title ?? ""}
+                    editable={writable}
+                    ariaLabel={`Edit job title for ${app.job_title || "application"}`}
+                    dataLabel="Job title"
+                    className="whitespace-normal"
+                    display={app.job_title || "—"}
+                    renderEditor={(props) => <TextEditor {...props} />}
+                    onCommit={(value) =>
+                      commit({
+                        rowId: app.id,
+                        getId: (r) => r.id,
+                        setRows,
+                        previousValues: { job_title: app.job_title },
+                        optimisticValues: { job_title: value.trim() || null },
+                        patch: (id, body) => applicationsApi.updateApplication(id, body),
+                        body: { job_title: value.trim() || null },
+                      })
+                    }
+                  />
+                  <EditableCell<string>
+                    value={app.job_code ?? ""}
+                    editable={writable}
+                    ariaLabel={`Edit job code for ${app.job_title || "application"}`}
+                    dataLabel="Job code"
+                    display={
+                      app.job_code ? (
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <code className="rounded bg-muted px-1 py-0.5 text-xs">{app.job_code}</code>
+                          {app.job_code_match_count > 0 && (
+                            <Badge
+                              variant="warning"
+                              title={
+                                "This job code is on " +
+                                (app.job_code_match_count + 1) +
+                                " applications — the same job has reached you more than once."
+                              }
+                            >
+                              +{app.job_code_match_count}
+                            </Badge>
+                          )}
+                        </span>
+                      ) : (
+                        "—"
+                      )
+                    }
+                    renderEditor={(props) => <TextEditor {...props} />}
+                    onCommit={(value, force) =>
+                      commit({
+                        rowId: app.id,
+                        getId: (r) => r.id,
+                        setRows,
+                        previousValues: { job_code: app.job_code },
+                        optimisticValues: { job_code: value.trim() || null },
+                        patch: (id, body) => applicationsApi.updateApplication(id, body),
+                        body: { job_code: value.trim() || null, confirm_create_duplicate: !!force },
+                      })
+                    }
+                    onOpenCandidate={(id) => store.navigate("application", { id })}
+                  />
                   <TableCell data-label="Status">
                     <Badge variant={applicationStatusVariant(app.status)}>{app.status_label}</Badge>
                   </TableCell>
-                  <TableCell data-label="Submitted">{app.date_submitted || "—"}</TableCell>
-                  <TableCell data-label="Source">{app.source || "—"}</TableCell>
-                  <TableCell data-label="System">{app.system || "—"}</TableCell>
+                  <EditableCell<string>
+                    value={app.date_submitted ?? ""}
+                    editable={writable}
+                    ariaLabel={`Edit date submitted for ${app.job_title || "application"}`}
+                    dataLabel="Submitted"
+                    display={<DateText value={app.date_submitted} />}
+                    renderEditor={(props) => <DateEditor {...props} />}
+                    onCommit={(value) =>
+                      commit({
+                        rowId: app.id,
+                        getId: (r) => r.id,
+                        setRows,
+                        previousValues: { date_submitted: app.date_submitted },
+                        optimisticValues: { date_submitted: value || null },
+                        patch: (id, body) => applicationsApi.updateApplication(id, body),
+                        body: { date_submitted: value || null },
+                      })
+                    }
+                  />
+                  <EditableCell<string>
+                    value={app.source ?? ""}
+                    editable={writable}
+                    ariaLabel={`Edit source for ${app.job_title || "application"}`}
+                    dataLabel="Source"
+                    display={app.source || "—"}
+                    renderEditor={(props) => <TextEditor {...props} />}
+                    onCommit={(value) =>
+                      commit({
+                        rowId: app.id,
+                        getId: (r) => r.id,
+                        setRows,
+                        previousValues: { source: app.source },
+                        optimisticValues: { source: value.trim() || null },
+                        patch: (id, body) => applicationsApi.updateApplication(id, body),
+                        body: { source: value.trim() || null },
+                      })
+                    }
+                  />
+                  <EditableCell<string>
+                    value={app.system ?? ""}
+                    editable={writable}
+                    ariaLabel={`Edit system for ${app.job_title || "application"}`}
+                    dataLabel="System"
+                    display={app.system || "—"}
+                    renderEditor={(props) => <TextEditor {...props} />}
+                    onCommit={(value) =>
+                      commit({
+                        rowId: app.id,
+                        getId: (r) => r.id,
+                        setRows,
+                        previousValues: { system: app.system },
+                        optimisticValues: { system: value.trim() || null },
+                        patch: (id, body) => applicationsApi.updateApplication(id, body),
+                        body: { system: value.trim() || null },
+                      })
+                    }
+                  />
                   <TableCell data-label="Events">{app.event_count}</TableCell>
                   <TableCell data-label="Attachments">{app.attachment_count}</TableCell>
                   <TableCell data-label="">

@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { DateText } from "@/components/common/DateTime";
 import { DetailList, DetailRow } from "@/components/common/DetailList";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { CompanyPicker } from "@/features/tracking/CompanyPicker";
 import { DuplicateWarning } from "@/features/tracking/DuplicateWarning";
+import { CompanyFields, EMPTY_COMPANY_DRAFT, type CompanyDraft } from "@/features/tracking/fields/CompanyFields";
 import { HistoryPanel } from "@/features/tracking/HistoryPanel";
 import * as companiesApi from "@/lib/api/companies";
 import type { CompanyDetail, CompanyRelationship, CompanyStackItem } from "@/lib/api/companies";
@@ -34,7 +36,7 @@ import { ApiError, errorMessage } from "@/lib/api/client";
 import { asDuplicateConflict, type DuplicateConflict } from "@/lib/api/tracking";
 import { canDelete, canWrite } from "@/lib/auth/scopes";
 import { COMPANY_RELATIONSHIP_TYPES, STACK_ITEM_TYPES, type CompanyRelationshipType, type StackItemType } from "@/lib/config";
-import { applicationStatusVariant, relationshipLabel } from "@/lib/tracking/labels";
+import { applicationStatusVariant, existingRelationshipHint, relationshipLabel } from "@/lib/tracking/labels";
 import { store } from "@/store/store";
 import { useStore } from "@/store/useStore";
 import { safeHref } from "@/lib/tracking/links";
@@ -154,19 +156,18 @@ function DetailsCard({
 }) {
   const { user } = useStore();
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState("");
-  const [website, setWebsite] = useState("");
-  const [description, setDescription] = useState("");
-  const [personalNote, setPersonalNote] = useState("");
+  const [draft, setDraft] = useState<CompanyDraft>(EMPTY_COMPANY_DRAFT);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<DuplicateConflict | null>(null);
   const [busy, setBusy] = useState(false);
 
   function startEdit() {
-    setName(company.name);
-    setWebsite(company.website ?? "");
-    setDescription(company.description ?? "");
-    setPersonalNote(company.personal_note ?? "");
+    setDraft({
+      name: company.name,
+      website: company.website ?? "",
+      description: company.description ?? "",
+      personal_note: company.personal_note ?? "",
+    });
     setError(null);
     setConflict(null);
     setEditing(true);
@@ -177,10 +178,10 @@ function DetailsCard({
     setError(null);
     try {
       const updated = await companiesApi.updateCompany(company.id, {
-        name: name.trim(),
-        website: website.trim() || null,
-        description: description.trim() || null,
-        personal_note: personalNote.trim() || null,
+        name: draft.name.trim(),
+        website: draft.website.trim() || null,
+        description: draft.description.trim() || null,
+        personal_note: draft.personal_note.trim() || null,
         confirm_create_duplicate: force,
       });
       onChanged(updated);
@@ -229,37 +230,9 @@ function DetailsCard({
             }}
             className="space-y-4"
           >
-            <Field>
-              <FieldLabel htmlFor="edit-name">Name</FieldLabel>
-              <Input id="edit-name" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="edit-website">Website</FieldLabel>
-              <Input
-                id="edit-website"
-                type="url"
-                value={website}
-                onChange={(e) => setWebsite(e.currentTarget.value)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="edit-description">Description</FieldLabel>
-              <Textarea
-                id="edit-description"
-                value={description}
-                onChange={(e) => setDescription(e.currentTarget.value)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="edit-note">Personal note</FieldLabel>
-              <Textarea
-                id="edit-note"
-                value={personalNote}
-                onChange={(e) => setPersonalNote(e.currentTarget.value)}
-              />
-            </Field>
+            <CompanyFields value={draft} onChange={setDraft} disabled={busy} idPrefix="edit-company" />
             <div className="flex gap-3">
-              <Button type="submit" disabled={busy || !name.trim()}>
+              <Button type="submit" disabled={busy || !draft.name.trim()}>
                 {busy ? "Saving…" : "Save"}
               </Button>
               <Button type="button" variant="outline" onClick={() => setEditing(false)} disabled={busy}>
@@ -394,7 +367,14 @@ function RelationshipsCard({ company, onChanged }: { company: CompanyDetail; onC
             <Banner kind="error">{error}</Banner>
             <Field>
               <FieldLabel>Company</FieldLabel>
-              <CompanyPicker value={toCompanyId} onChange={(id) => setToCompanyId(id)} />
+              <CompanyPicker
+                value={toCompanyId}
+                onChange={(id) => setToCompanyId(id)}
+                allowCreate
+                modal
+                excludeIds={[company.id]}
+                hintFor={(c) => existingRelationshipHint(company.relationships, company.id, c.id)}
+              />
             </Field>
             <Field>
               <FieldLabel htmlFor="rel-type">Relationship</FieldLabel>
@@ -765,10 +745,22 @@ function ContactsCard({ company }: { company: CompanyDetail }) {
 }
 
 function ApplicationsCard({ company }: { company: CompanyDetail }) {
+  const { user } = useStore();
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Applications</CardTitle>
+        {canWrite(user, "applications") && (
+          <CardAction>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => store.openEventComposer({ companyId: company.id })}
+            >
+              New event
+            </Button>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent>
         {company.recent_applications.length === 0 ? (
@@ -787,7 +779,7 @@ function ApplicationsCard({ company }: { company: CompanyDetail }) {
                   </button>
                   <Badge variant={applicationStatusVariant(app.status)}>{app.status_label}</Badge>
                   {app.date_submitted && (
-                    <span className="text-muted-foreground">{app.date_submitted}</span>
+                    <span className="text-muted-foreground"><DateText value={app.date_submitted} /></span>
                   )}
                 </Item>
               </li>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { DateTimeText } from "@/components/common/DateTime";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { TableSkeleton } from "@/components/common/TableSkeleton";
@@ -138,7 +139,7 @@ function DocumentTypeSection({
                   >
                     {doc.revision_note || "—"}
                   </TableCell>
-                  <TableCell data-label="Created">{new Date(doc.created_at).toLocaleString()}</TableCell>
+                  <TableCell data-label="Created"><DateTimeText value={doc.created_at} /></TableCell>
                   <TableCell data-label="">
                     <Button
                       size="sm"

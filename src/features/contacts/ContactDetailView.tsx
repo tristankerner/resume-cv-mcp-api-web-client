@@ -15,17 +15,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
-import { CompanyPicker } from "@/features/tracking/CompanyPicker";
+import { ContactFields, contactDraftValid, emptyContactDraft, type ContactDraft } from "@/features/tracking/fields/ContactFields";
 import { HistoryPanel } from "@/features/tracking/HistoryPanel";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import * as contactsApi from "@/lib/api/contacts";
 import type { Contact } from "@/lib/api/contacts";
-import { CONTACT_RATING_OPTIONS } from "@/lib/config";
 import { canDelete, canWrite } from "@/lib/auth/scopes";
 import { store } from "@/store/store";
 import { useStore } from "@/store/useStore";
@@ -39,14 +34,7 @@ export function ContactDetailView({ id }: { id: number }) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [companyId, setCompanyId] = useState<number | null>(null);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [rating, setRating] = useState("");
-  const [description, setDescription] = useState("");
-  const [personalNote, setPersonalNote] = useState("");
+  const [draft, setDraft] = useState<ContactDraft>(() => emptyContactDraft());
   const [saveError, setSaveError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -75,19 +63,22 @@ export function ContactDetailView({ id }: { id: number }) {
 
   function startEdit() {
     if (!contact) return;
-    setCompanyId(contact.company_id);
-    setFirstName(contact.first_name ?? "");
-    setLastName(contact.last_name ?? "");
-    setEmail(contact.email ?? "");
-    setPhone(contact.phone ?? "");
-    setRating(contact.rating != null ? String(contact.rating) : "");
-    setDescription(contact.description ?? "");
-    setPersonalNote(contact.personal_note ?? "");
+    setDraft({
+      company_id: contact.company_id,
+      company_name: contact.company_name ?? "",
+      first_name: contact.first_name ?? "",
+      last_name: contact.last_name ?? "",
+      email: contact.email ?? "",
+      phone: contact.phone ?? "",
+      rating: contact.rating != null ? String(contact.rating) : "",
+      description: contact.description ?? "",
+      personal_note: contact.personal_note ?? "",
+    });
     setSaveError(null);
     setEditing(true);
   }
 
-  const valid = !!(firstName.trim() || lastName.trim() || email.trim());
+  const valid = contactDraftValid(draft);
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -96,14 +87,14 @@ export function ContactDetailView({ id }: { id: number }) {
     setSaveError(null);
     try {
       const updated = await contactsApi.updateContact(contact.id, {
-        company_id: companyId,
-        first_name: firstName.trim() || null,
-        last_name: lastName.trim() || null,
-        email: email.trim() || null,
-        phone: phone.trim() || null,
-        rating: rating ? Number(rating) : null,
-        description: description.trim() || null,
-        personal_note: personalNote.trim() || null,
+        company_id: draft.company_id,
+        first_name: draft.first_name.trim() || null,
+        last_name: draft.last_name.trim() || null,
+        email: draft.email.trim() || null,
+        phone: draft.phone.trim() || null,
+        rating: draft.rating ? Number(draft.rating) : null,
+        description: draft.description.trim() || null,
+        personal_note: draft.personal_note.trim() || null,
       });
       setContact(updated);
       setEditing(false);
@@ -161,68 +152,7 @@ export function ContactDetailView({ id }: { id: number }) {
           <Banner kind="error">{saveError}</Banner>
           {editing ? (
             <form onSubmit={save} className="space-y-4">
-              <Field>
-                <FieldLabel>Company</FieldLabel>
-                <CompanyPicker
-                  value={companyId}
-                  valueLabel={contact.company_name}
-                  onChange={(id) => setCompanyId(id)}
-                  allowCreate
-                  allowNone
-                />
-              </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="edit-first">First name</FieldLabel>
-                  <Input id="edit-first" value={firstName} onChange={(e) => setFirstName(e.currentTarget.value)} />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="edit-last">Last name</FieldLabel>
-                  <Input id="edit-last" value={lastName} onChange={(e) => setLastName(e.currentTarget.value)} />
-                </Field>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="edit-email">Email</FieldLabel>
-                  <Input id="edit-email" type="email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="edit-phone">Phone</FieldLabel>
-                  <Input id="edit-phone" value={phone} onChange={(e) => setPhone(e.currentTarget.value)} />
-                </Field>
-              </div>
-              {!valid && (
-                <p className="text-sm text-muted-foreground">
-                  At least one of first name, last name or email is required.
-                </p>
-              )}
-              <Field>
-                <FieldLabel htmlFor="edit-rating">Rating</FieldLabel>
-                <Select value={rating} onValueChange={setRating}>
-                  <SelectTrigger id="edit-rating" className="w-full">
-                    <SelectValue placeholder="— none —" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CONTACT_RATING_OPTIONS.map((r) => (
-                      <SelectItem key={r.value} value={String(r.value)}>
-                        {r.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="edit-description">Description</FieldLabel>
-                <Textarea
-                  id="edit-description"
-                  value={description}
-                  onChange={(e) => setDescription(e.currentTarget.value)}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="edit-note">Personal note</FieldLabel>
-                <Textarea id="edit-note" value={personalNote} onChange={(e) => setPersonalNote(e.currentTarget.value)} />
-              </Field>
+              <ContactFields value={draft} onChange={setDraft} disabled={busy} allowCreateCompany idPrefix="edit" />
               <div className="flex gap-3">
                 <Button type="submit" disabled={busy || !valid}>
                   {busy ? "Saving…" : "Save"}

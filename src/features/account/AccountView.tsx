@@ -1,15 +1,20 @@
-import { type FormEvent, useMemo, useState } from "react";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Banner } from "@/components/common/Banner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import * as authApi from "@/lib/api/auth";
 import { ApiError, errorMessage } from "@/lib/api/client";
+import { allZones, detectZone, effectiveZone, formatInstant } from "@/lib/datetime";
 import { passwordComplexityChecks } from "@/lib/passwords";
+import { cn } from "@/lib/utils";
 import { store } from "@/store/store";
 import { useStore } from "@/store/useStore";
 
@@ -69,6 +74,10 @@ export function AccountView() {
           <p className="text-sm text-muted-foreground">Scopes: {(user!.scopes || []).join(", ") || "none"}</p>
         </CardContent>
       </Card>
+
+      {/* The API's users.timezone may not be deployed yet — guard at runtime
+          rather than assume the TS type matches the live response. */}
+      {user && "timezone" in user && <TimezoneCard />}
 
       <Card className="max-w-3xl">
         <CardHeader>
@@ -155,5 +164,109 @@ export function AccountView() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function TimezoneCard() {
+  const { user } = useStore();
+  const zones = useMemo(() => allZones(), []);
+  const detected = useMemo(() => detectZone(), []);
+  const [zone, setZone] = useState(effectiveZone(user));
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  async function save(next: string) {
+    if (!user) return;
+    setZone(next);
+    setBusy(true);
+    setError(null);
+    try {
+      await authApi.updateUser(user.id, { timezone: next });
+      const refreshed = await authApi.me();
+      store.set({ user: refreshed });
+      toast.success("Timezone updated.");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) return;
+      setError(errorMessage(err));
+      setZone(effectiveZone(user));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="mb-5 max-w-3xl">
+      <CardHeader>
+        <CardTitle>Timezone</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Banner kind="error">{error}</Banner>
+        <Field>
+          <FieldLabel>Timezone</FieldLabel>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                disabled={busy}
+                className="w-full justify-between font-normal sm:max-w-sm"
+              >
+                {zone}
+                <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search timezones…" />
+                <CommandList>
+                  <CommandEmpty>No timezone found.</CommandEmpty>
+                  <CommandGroup>
+                    {zones.map((z) => (
+                      <CommandItem
+                        key={z}
+                        value={z}
+                        onSelect={() => {
+                          setOpen(false);
+                          if (z !== zone) save(z);
+                        }}
+                      >
+                        <Check className={cn("size-4", zone === z ? "opacity-100" : "opacity-0")} />
+                        {z}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <FieldDescription>
+            Used to display every date and time in the app. Detected: {detected}
+            {detected !== zone && (
+              <>
+                {" — "}
+                <button
+                  type="button"
+                  className="text-primary underline underline-offset-4 disabled:pointer-events-none disabled:opacity-50"
+                  disabled={busy}
+                  onClick={() => save(detected)}
+                >
+                  use this
+                </button>
+              </>
+            )}
+          </FieldDescription>
+        </Field>
+        <p className="text-sm text-muted-foreground">Now: {formatInstant(now.toISOString(), zone)}</p>
+      </CardContent>
+    </Card>
   );
 }

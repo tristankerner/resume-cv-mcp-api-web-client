@@ -1,4 +1,4 @@
-import { SearchIcon } from "lucide-react";
+import { PlusIcon, SearchIcon } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 
 import {
@@ -14,12 +14,13 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { SessionCountdown } from "@/components/layout/SessionCountdown";
+import { canWrite } from "@/lib/auth/scopes";
 import { store, type View } from "@/store/store";
 import { breadcrumbTrail, VIEW_META } from "@/store/views";
 import { useStore } from "@/store/useStore";
 
 export function SiteHeader() {
-  const { view, session, crumb } = useStore();
+  const { view, session, crumb, user } = useStore();
   const trail = breadcrumbTrail(view);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -68,6 +69,12 @@ export function SiteHeader() {
       </Breadcrumb>
       <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
         {session && <SessionCountdown session={session} />}
+        {canWrite(user, "applications") && (
+          <Button variant="outline" size="sm" onClick={() => store.openEventComposer()}>
+            <PlusIcon />
+            <span className="hidden sm:inline">New event</span>
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"

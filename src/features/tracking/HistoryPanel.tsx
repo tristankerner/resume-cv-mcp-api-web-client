@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Banner } from "@/components/common/Banner";
+import { DateTimeText } from "@/components/common/DateTime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
@@ -82,7 +83,7 @@ export function HistoryPanel({ table, rowId }: { table: string; rowId: number })
               <Item variant="outline" className="flex-col items-start">
                 <ItemTitle className="font-normal">
                   <Badge variant={OP_VARIANT[entry.operation]}>{OP_LABEL[entry.operation]}</Badge>
-                  <span className="text-muted-foreground">{new Date(entry.changed_at).toLocaleString()}</span>
+                  <span className="text-muted-foreground"><DateTimeText value={entry.changed_at} /></span>
                   <span className="text-muted-foreground">{whoLabel(entry, user?.id)}</span>
                 </ItemTitle>
                 {entry.operation === "U" && entry.changed_columns && entry.changed_columns.length > 0 && (
