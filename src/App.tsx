@@ -48,7 +48,7 @@ export function App() {
       <AppShell>
         {user && !user.mfa_enrolled && !warningDismissed && (
           <Banner kind="warn" onDismiss={() => setWarningDismissed(true)}>
-            Your account has no second factor.{" "}
+            Your password login has no second factor.{" "}
             <a
               href="#"
               className="underline underline-offset-4"

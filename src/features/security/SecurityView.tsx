@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ActivateTotpModal } from "@/features/security/ActivateTotpModal";
 import { BackupCodesModal } from "@/features/security/BackupCodesModal";
+import { PasskeysPanel } from "@/features/security/PasskeysPanel";
 import * as authApi from "@/lib/api/auth";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import * as mfaApi from "@/lib/api/mfa";
@@ -62,6 +63,7 @@ export function SecurityView() {
   return (
     <div>
       <PageHeader title="Security" />
+      <PasskeysPanel onChanged={refreshUser} />
       {status.credentials.length === 0 ? (
         <div className="mb-5">
           <EmptyState>No second factor set up yet.</EmptyState>
