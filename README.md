@@ -4,8 +4,8 @@ The browser client for
 [`resume-cv-mcp-api`](https://github.com/tristankerner/resume-cv-mcp-api): a
 browser UI for managing documents, application tracking (applications,
 companies, contacts), API keys, second factors (an authenticator app and
-backup codes), and — for an account holding `users:admin` — user and OAuth
-client administration, against that service.
+backup codes), passkeys, and — for an account holding `users:admin` — user
+and OAuth client administration, against that service.
 
 "Client" means several things across that project's docs — an AI/MCP client
 (Claude Desktop, etc.), an OAuth client, and a front-end UI. This repository
@@ -186,6 +186,29 @@ an OAuth client defaults to **confidential** (the API issues a secret, shown
 once); turn on "Public client" only for one that cannot keep a secret, where
 PKCE binds the exchange instead.
 
+## Passkeys
+
+Passwordless sign-in via WebAuthn, alongside — not instead of — the password
+form: a "Sign in with a passkey" button on the login screen, autofill on the
+username field once a passkey has been registered, and an add/rename/remove
+table on the Security page above the second-factor one. A passkey login is
+complete on its own and does not then ask for a TOTP code; see
+`resume-cv-mcp-api`'s docs for why that is the intended trade-off, not an
+oversight.
+
+The whole feature is invisible, not just disabled, unless three independent
+things are all true: the browser supports WebAuthn, the page is a secure
+context (`https://`, or `http://localhost`, or a `file://` client whose
+browser treats it as secure — see the Mobile section below), and the server
+reports the feature on via `GET /auth/capabilities`. That last one needs the
+API deployment to set `WEBAUTHN_RP_ID` and `WEBAUTHN_ALLOWED_ORIGINS`; unset,
+the passkey routes 404 and every passkey control in this client simply does
+not render. `WEBAUTHN_ALLOWED_ORIGINS` must name every origin this client is
+actually served from — a deployment that serves the SPA from one host and the
+API's own `/docs` login page from another needs both listed, or a ceremony
+started from the unlisted one fails at the last step with a `SecurityError`.
+See `resume-cv-mcp-api`'s README for the full settings reference.
+
 ## Application tracking
 
 Three sections — **Applications**, **Companies**, **Contacts** — each gated on
@@ -227,7 +250,9 @@ Entering a TOTP code and reading backup codes belong on that same short
 list — logging in from a phone is exactly where a second factor gets
 checked most often. `autocomplete="one-time-code"` is wired up on every
 code field, so iOS and Android can offer the code straight from the
-SMS/clipboard suggestion bar instead of it being typed by hand.
+SMS/clipboard suggestion bar instead of it being typed by hand. A passkey
+goes further: on a phone it *is* the platform biometric, so there is no code
+to receive or type at all — see Passkeys above.
 
 Two platform quirks worth knowing about rather than mistaking for bugs:
 
