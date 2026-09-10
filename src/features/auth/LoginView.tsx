@@ -1,4 +1,5 @@
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 
 import { Banner } from "@/components/common/Banner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import type { Token } from "@/lib/api/auth";
 import { schemas } from "@/lib/api/documents";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { decodeJwtExp, loadLastApiBase, saveSession, type Session } from "@/lib/auth/session";
+import { browserCanUsePasskeys, getCredential, passkeyErrorMessage } from "@/lib/auth/webauthn";
 import { REFRESH_TOKEN_ASSUMED_LIFETIME_SECONDS } from "@/lib/config";
 import { store } from "@/store/store";
 import { useStore } from "@/store/useStore";
@@ -35,7 +37,33 @@ export function LoginView() {
   const [pending, setPending] = useState<PendingMfa | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [passkeysAvailable, setPasskeysAvailable] = useState(false);
   const wasLoggedIn = useRef(!!user);
+
+  // The API base is an editable field, so this can't be fetched once.
+  // Debounced: `apiBase` changes on every keystroke, and this must not
+  // become a request per character typed into the field.
+  useEffect(() => {
+    if (!browserCanUsePasskeys()) return;
+    const base = apiBase.replace(/\/+$/, "");
+    if (!base) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const caps = await authApi.capabilities(base);
+        if (!cancelled) setPasskeysAvailable(caps.passkeys);
+      } catch {
+        // A server too old for this route, or unreachable. Either way the
+        // button stays hidden and the password form is unaffected — this is
+        // a progressive enhancement, never a precondition for logging in.
+        if (!cancelled) setPasskeysAvailable(false);
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [apiBase]);
 
   // Shared by both steps: whichever one ends with an access token finishes
   // the same way — decode the expiry, persist the session, load the user and
@@ -51,10 +79,43 @@ export function LoginView() {
       refreshToken: token.refresh_token,
       refreshExp: Math.floor(Date.now() / 1000) + REFRESH_TOKEN_ASSUMED_LIFETIME_SECONDS,
     };
+    // Saved before authApi.me() below: that call reads the token out of the
+    // store, so this has to land first regardless of whether it gets
+    // re-saved a moment later.
     saveSession(session);
     store.set({ session });
     const [nextUser, nextSchemas] = await Promise.all([authApi.me(), schemas()]);
+    // Re-saved with the authoritative username: a passkey login may not have
+    // had one to send (the usernameless flow), and the session is what the
+    // sidebar and the API-base memory read back.
+    if (nextUser.username !== forUsername) {
+      const named = { ...session, username: nextUser.username };
+      saveSession(named);
+      store.set({ session: named });
+    }
     store.set({ user: nextUser, schemas: nextSchemas, view: wasLoggedIn.current ? store.state.view : "documents" });
+  }
+
+  async function signInWithPasskey() {
+    setBusy(true);
+    setError(null);
+    try {
+      const base = apiBase.replace(/\/+$/, "");
+      // `username` is passed when the field has something in it and omitted
+      // when it does not: with a name the server scopes the ceremony to that
+      // account's credentials, and without one the browser offers every
+      // passkey it holds for this site. Both are supported; neither is
+      // required.
+      const { options, login_token } = await authApi.passkeyOptions(base, username || undefined);
+      const credential = await getCredential(options as unknown as PublicKeyCredentialRequestOptionsJSON);
+      const token = await authApi.passkeyLogin(base, login_token, credential);
+      await completeLogin(base, username, token);
+    } catch (err) {
+      const message = passkeyErrorMessage(err);
+      if (message !== null) setError(message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function submit(e: FormEvent) {
@@ -193,6 +254,19 @@ export function LoginView() {
             <Button type="submit" disabled={busy} className="w-full">
               {busy ? "Logging in…" : "Log in"}
             </Button>
+            {passkeysAvailable && (
+              // type="button": inside a <form>, the default is submit, and
+              // the default would fire the password login instead.
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={busy}
+                onClick={signInWithPasskey}
+              >
+                Sign in with a passkey
+              </Button>
+            )}
           </CardContent>
         </form>
       </Card>
