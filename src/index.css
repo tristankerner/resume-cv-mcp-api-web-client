@@ -6,82 +6,117 @@
 
 /* Light is the :root default; `.dark` on <html> overrides it. The class
    toggle lives in src/hooks/use-theme.ts, with an anti-FOUC copy of the
-   same logic inlined in index.html so it runs before first paint. */
+   same logic inlined in index.html so it runs before first paint.
+
+   All tokens are OKLCH so lightness steps are perceptual — see
+   THEMING_AND_SESSION_PLAN.md §3.2 for why that matters for the surface
+   ramp below. Every hue in the neutral scale is a slate ~255; --ring and
+   --destructive/--success/--warning use their own hues on purpose. */
 :root {
   --radius: 0.5rem;
 
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(222.2 84% 4.9%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(222.2 84% 4.9%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(222.2 84% 4.9%);
-  --primary: hsl(222.2 47.4% 11.2%);
-  --primary-foreground: hsl(210 40% 98%);
-  --secondary: hsl(210 40% 96.1%);
-  --secondary-foreground: hsl(222.2 47.4% 11.2%);
-  --muted: hsl(210 40% 96.1%);
-  --muted-foreground: hsl(215.4 16.3% 46.9%);
-  --accent: hsl(210 40% 96.1%);
-  --accent-foreground: hsl(222.2 47.4% 11.2%);
-  --destructive: hsl(0 84.2% 60.2%);
-  --destructive-foreground: hsl(210 40% 98%);
+  /* Surface ramp: --background < --card < --popover. Cards/popovers can't
+     go lighter than white, so instead of raising them, the *page* is
+     lowered slightly below white — the inverse of the dark-mode ladder.
+     Do not "fix" this back to a pure-white background. */
+  --background: oklch(0.97 0.006 255);
+  --foreground: oklch(0.25 0.02 255);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.25 0.02 255);
+  /* Sits a hair above --card in raw value; the two read as the same white
+     and rely on Popover/DropdownMenu's stronger shadow (already shadow-md
+     vs Card's shadow-sm) for the actual elevation cue. */
+  --popover: oklch(0.995 0.002 255);
+  --popover-foreground: oklch(0.25 0.02 255);
+  --primary: oklch(0.28 0.05 255);
+  --primary-foreground: oklch(0.98 0.005 255);
+  --secondary: oklch(0.915 0.012 255);
+  --secondary-foreground: oklch(0.25 0.02 255);
+  --muted: oklch(0.94 0.008 255);
+  --muted-foreground: oklch(0.5 0.02 255);
+  /* The most distinct of the three interaction surfaces — this is what
+     makes a hovered table row read as hovered. */
+  --accent: oklch(0.88 0.018 255);
+  --accent-foreground: oklch(0.25 0.02 255);
+  /* One value serves as both solid-fill background (paired with
+     --destructive-foreground) and as standalone text color
+     (`text-destructive`, used by SessionCountdown, EntityPicker's error
+     line, and a couple of others) — it clears 4.5:1 both ways against
+     these tokens, so no --destructive-text sibling is needed. */
+  --destructive: oklch(0.48 0.19 25);
+  --destructive-foreground: oklch(0.98 0.005 25);
   /* Not in shadcn's stock slate palette — hand-picked to hold contrast as
      both a text color (Alert's `text-success`) and a solid badge
-     background (Badge's `bg-success`) against a light page. */
-  --success: hsl(142 76% 27%);
-  --success-foreground: hsl(140 60% 97%);
-  --warning: hsl(30 92% 28%);
-  --warning-foreground: hsl(48 96% 96%);
-  --border: hsl(214.3 31.8% 91.4%);
-  --input: hsl(214.3 31.8% 91.4%);
-  --ring: hsl(222.2 84% 4.9%);
+     background (Badge's `bg-success`). Re-verified against the retuned
+     --background/--card above; still clears 4.5:1 both ways. */
+  --success: oklch(0.506 0.135 149.5);
+  --success-foreground: oklch(0.982 0.013 157);
+  --warning: oklch(0.471 0.112 56.4);
+  --warning-foreground: oklch(0.986 0.021 95.3);
+  --border: oklch(0.9 0.01 255);
+  /* Darker than --border in light mode so a field reads as recessed
+     rather than as a divider. */
+  --input: oklch(0.85 0.015 255);
+  /* Its own hue/chroma — must not collapse into --foreground or
+     --primary, or focus stops being identifiable as focus. */
+  --ring: oklch(0.55 0.15 250);
 
-  --sidebar: hsl(210 40% 98%);
-  --sidebar-foreground: hsl(222.2 84% 4.9%);
-  --sidebar-primary: hsl(222.2 47.4% 11.2%);
-  --sidebar-primary-foreground: hsl(210 40% 98%);
-  --sidebar-accent: hsl(210 40% 96.1%);
-  --sidebar-accent-foreground: hsl(222.2 47.4% 11.2%);
-  --sidebar-border: hsl(214.3 31.8% 91.4%);
-  --sidebar-ring: hsl(222.2 84% 4.9%);
+  /* Folded into the surface ramp at the --card level rather than kept as
+     a one-off value. */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.25 0.02 255);
+  --sidebar-primary: oklch(0.28 0.05 255);
+  --sidebar-primary-foreground: oklch(0.98 0.005 255);
+  --sidebar-accent: oklch(0.88 0.018 255);
+  --sidebar-accent-foreground: oklch(0.25 0.02 255);
+  --sidebar-border: oklch(0.9 0.01 255);
+  --sidebar-ring: oklch(0.55 0.15 250);
 }
 
 .dark {
-  --background: hsl(222.2 84% 4.9%);
-  --foreground: hsl(210 40% 98%);
-  --card: hsl(222.2 84% 4.9%);
-  --card-foreground: hsl(210 40% 98%);
-  --popover: hsl(222.2 84% 4.9%);
-  --popover-foreground: hsl(210 40% 98%);
-  --primary: hsl(210 40% 98%);
-  --primary-foreground: hsl(222.2 47.4% 11.2%);
-  --secondary: hsl(217.2 32.6% 17.5%);
-  --secondary-foreground: hsl(210 40% 98%);
-  --muted: hsl(217.2 32.6% 17.5%);
-  --muted-foreground: hsl(215 20.2% 65.1%);
-  --accent: hsl(217.2 32.6% 17.5%);
-  --accent-foreground: hsl(210 40% 98%);
-  --destructive: hsl(0 62.8% 30.6%);
-  --destructive-foreground: hsl(210 40% 98%);
-  --success: hsl(142 71% 45%);
-  --success-foreground: hsl(144 61% 8%);
-  --warning: hsl(38 92% 50%);
-  --warning-foreground: hsl(31 74% 8%);
-  --border: hsl(217.2 32.6% 17.5%);
-  --input: hsl(217.2 32.6% 17.5%);
-  --ring: hsl(212.7 26.8% 83.9%);
+  /* Surface ramp: --background < --card == --sidebar < --popover, a
+     straightforward lightness ladder now that OKLCH makes "one step
+     lighter" mean what it says. Lightness/chroma both pulled back from
+     the old near-black 4.9%/84% so body text lands at ~15:1 instead of
+     ~19:1 — see the ceiling on --foreground-on-background in
+     contrast.test.ts. */
+  --background: oklch(0.16 0.02 255);
+  --foreground: oklch(0.92 0.01 255);
+  --card: oklch(0.21 0.02 255);
+  --card-foreground: oklch(0.92 0.01 255);
+  --popover: oklch(0.25 0.02 255);
+  --popover-foreground: oklch(0.92 0.01 255);
+  --primary: oklch(0.9 0.01 255);
+  --primary-foreground: oklch(0.22 0.03 255);
+  --secondary: oklch(0.29 0.02 255);
+  --secondary-foreground: oklch(0.92 0.01 255);
+  --muted: oklch(0.24 0.02 255);
+  --muted-foreground: oklch(0.66 0.015 255);
+  --accent: oklch(0.33 0.025 255);
+  --accent-foreground: oklch(0.92 0.01 255);
+  /* Same one-value-does-both-jobs reasoning as light mode: bright enough
+     as text against --background, and --destructive-foreground (dark) is
+     legible on it as a solid fill. */
+  --destructive: oklch(0.65 0.18 25);
+  --destructive-foreground: oklch(0.15 0.03 25);
+  --success: oklch(0.721 0.192 149.5);
+  --success-foreground: oklch(0.222 0.043 154.5);
+  --warning: oklch(0.77 0.165 70.6);
+  --warning-foreground: oklch(0.211 0.036 66.8);
+  --border: oklch(0.28 0.02 255);
+  /* Lighter than --border in dark mode — same "input reads as recessed"
+     rule as light mode, inverted because the ramp direction is inverted. */
+  --input: oklch(0.34 0.025 255);
+  --ring: oklch(0.75 0.13 250);
 
-  /* One step lighter than --background so the rail reads as a distinct
-     surface against --card, which currently equals --background. */
-  --sidebar: hsl(222.2 47% 8%);
-  --sidebar-foreground: hsl(210 40% 98%);
-  --sidebar-primary: hsl(210 40% 98%);
-  --sidebar-primary-foreground: hsl(222.2 47.4% 11.2%);
-  --sidebar-accent: hsl(217.2 32.6% 17.5%);
-  --sidebar-accent-foreground: hsl(210 40% 98%);
-  --sidebar-border: hsl(217.2 32.6% 17.5%);
-  --sidebar-ring: hsl(212.7 26.8% 83.9%);
+  --sidebar: oklch(0.21 0.02 255);
+  --sidebar-foreground: oklch(0.92 0.01 255);
+  --sidebar-primary: oklch(0.9 0.01 255);
+  --sidebar-primary-foreground: oklch(0.22 0.03 255);
+  --sidebar-accent: oklch(0.33 0.025 255);
+  --sidebar-accent-foreground: oklch(0.92 0.01 255);
+  --sidebar-border: oklch(0.28 0.02 255);
+  --sidebar-ring: oklch(0.75 0.13 250);
 }
 
 @theme inline {
