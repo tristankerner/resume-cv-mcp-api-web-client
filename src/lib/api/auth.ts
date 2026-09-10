@@ -1,4 +1,5 @@
 import { request } from "@/lib/api/client";
+import type { PasskeyAuthenticationOptionsResponse } from "@/lib/api/passkeys";
 import type { User } from "@/lib/auth/scopes";
 
 export interface Token {
@@ -76,4 +77,34 @@ export interface ChangePasswordRequest {
 
 export function changePassword(body: ChangePasswordRequest) {
   return request<null>("POST", "/users/me/password", { body });
+}
+
+export interface AuthCapabilities {
+  passkeys: boolean;
+}
+
+// Anonymous, and called before login: the login screen has to know whether to
+// offer a passkey button, and only the server knows whether WEBAUTHN_RP_ID is
+// configured.
+export function capabilities(apiBase: string) {
+  return request<AuthCapabilities>("GET", "/auth/capabilities", { auth: false, apiBase });
+}
+
+// JSON, not form-encoded, unlike login/completeMfa above: a WebAuthn credential
+// is a nested object with base64url leaves, and flattening it into form fields
+// would mean inventing an encoding on both sides of the wire.
+export function passkeyOptions(apiBase: string, username?: string) {
+  return request<PasskeyAuthenticationOptionsResponse>("POST", "/token/passkey/options", {
+    body: { username: username || null },
+    auth: false,
+    apiBase,
+  });
+}
+
+export function passkeyLogin(apiBase: string, loginToken: string, credential: unknown) {
+  return request<Token>("POST", "/token/passkey", {
+    body: { login_token: loginToken, credential },
+    auth: false,
+    apiBase,
+  });
 }
