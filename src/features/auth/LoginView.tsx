@@ -11,7 +11,13 @@ import type { Token } from "@/lib/api/auth";
 import { schemas } from "@/lib/api/documents";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { decodeJwtExp, loadLastApiBase, saveSession, type Session } from "@/lib/auth/session";
-import { browserCanUsePasskeys, getCredential, passkeyErrorMessage } from "@/lib/auth/webauthn";
+import {
+  browserCanUsePasskeys,
+  browserSupportsAutofill,
+  cancelPasskeyCeremony,
+  getCredential,
+  passkeyErrorMessage,
+} from "@/lib/auth/webauthn";
 import { REFRESH_TOKEN_ASSUMED_LIFETIME_SECONDS } from "@/lib/config";
 import { store } from "@/store/store";
 import { useStore } from "@/store/useStore";
@@ -95,6 +101,42 @@ export function LoginView() {
     }
     store.set({ user: nextUser, schemas: nextSchemas, view: wasLoggedIn.current ? store.state.view : "documents" });
   }
+
+  // A conditional ceremony started on mount and aborted on unmount — the
+  // browser's own autofill dropdown offers a saved passkey alongside typed
+  // credentials. Keyed on `passkeysAvailable` alone, deliberately not
+  // `apiBase`: restarting this on every keystroke in the API base field
+  // would be worse than pointing at a stale base for one attempt.
+  useEffect(() => {
+    if (!passkeysAvailable) return;
+    let cancelled = false;
+    (async () => {
+      if (!(await browserSupportsAutofill()) || cancelled) return;
+      try {
+        const base = apiBase.replace(/\/+$/, "");
+        // Usernameless by construction: the browser matches the credential
+        // to whatever the user picks out of the autofill dropdown.
+        const { options, login_token } = await authApi.passkeyOptions(base);
+        const credential = await getCredential(
+          options as unknown as PublicKeyCredentialRequestOptionsJSON,
+          true,
+        );
+        if (cancelled) return;
+        const token = await authApi.passkeyLogin(base, login_token, credential);
+        await completeLogin(base, "", token);
+      } catch (err) {
+        // An abort is the normal end of a conditional ceremony — it is how
+        // the browser says "the user typed a password instead". Never
+        // surface it.
+        const message = passkeyErrorMessage(err);
+        if (!cancelled && message !== null) setError(message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      cancelPasskeyCeremony();
+    };
+  }, [passkeysAvailable]);
 
   async function signInWithPasskey() {
     setBusy(true);
@@ -236,7 +278,7 @@ export function LoginView() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.currentTarget.value)}
-                autoComplete="username"
+                autoComplete="username webauthn"
                 required
               />
             </Field>

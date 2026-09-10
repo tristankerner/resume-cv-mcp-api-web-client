@@ -3,6 +3,7 @@ import {
   browserSupportsWebAuthnAutofill,
   startAuthentication,
   startRegistration,
+  WebAuthnAbortService,
   WebAuthnError,
 } from "@simplewebauthn/browser";
 import type {
@@ -23,6 +24,15 @@ export function browserCanUsePasskeys(): boolean {
 
 export function browserSupportsAutofill(): Promise<boolean> {
   return browserSupportsWebAuthnAutofill();
+}
+
+// The library already tracks the in-flight ceremony's own AbortController
+// (createNewAbortSignal, called internally by both start* functions below) —
+// this just exposes its cancel half, so an unmounting conditional-UI effect
+// can end a stale autofill ceremony without keeping a second controller of
+// its own.
+export function cancelPasskeyCeremony(): void {
+  WebAuthnAbortService.cancelCeremony();
 }
 
 // Both take the server's `options` blob straight through and return the
