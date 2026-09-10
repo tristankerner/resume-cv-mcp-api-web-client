@@ -4,6 +4,7 @@ import type { User } from "@/lib/auth/scopes";
 export interface Token {
   access_token: string;
   token_type: string;
+  refresh_token: string;
 }
 
 export interface MfaRequiredResponse {
@@ -30,6 +31,24 @@ export function login(apiBase: string, username: string, password: string) {
 export function completeMfa(apiBase: string, mfaToken: string, code: string) {
   return request<Token>("POST", "/token/mfa", {
     form: { mfa_token: mfaToken, code },
+    auth: false,
+    apiBase,
+  });
+}
+
+// Both authenticate with the refresh token in the body, not the (possibly
+// expired) bearer header — same reasoning as login/completeMfa above.
+export function refresh(apiBase: string, refreshToken: string) {
+  return request<Token>("POST", "/token/refresh", {
+    form: { refresh_token: refreshToken },
+    auth: false,
+    apiBase,
+  });
+}
+
+export function logout(apiBase: string, refreshToken: string) {
+  return request<null>("POST", "/token/logout", {
+    form: { refresh_token: refreshToken },
     auth: false,
     apiBase,
   });

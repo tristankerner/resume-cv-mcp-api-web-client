@@ -13,6 +13,20 @@ export type DocType = (typeof DOC_TYPES)[number];
 
 export const SESSION_LOW_WARNING_MS = 5 * 60 * 1000;
 
+// Inside SESSION_LOW_WARNING_MS on purpose — the passive countdown shows
+// first, and the interrupting "Keep me logged in?" dialog follows it.
+export const KEEP_ALIVE_PROMPT_MS = 3 * 60 * 1000;
+
+// POST /token, /token/mfa and /token/refresh return an opaque refresh token
+// with no expiry field — the server never tells the client how long it will
+// stay redeemable. This mirrors the API's documented default
+// (AUTH_REFRESH_TOKEN_EXPIRE_DAYS in .env.example) as a client-side estimate
+// for Session.refreshExp. A deployment configured with a shorter TTL just
+// means an occasional refresh attempt fails a bit sooner than this client
+// expected — handled by the existing error path in useSessionKeepAlive, not
+// a security gap either way.
+export const REFRESH_TOKEN_ASSUMED_LIFETIME_SECONDS = 14 * 24 * 60 * 60;
+
 // --- Application tracking -----------------------------------------------
 // Mirrors GET /tracking/enums (Appendix A.4). The client hardcodes these for
 // rendering, but must not fail on a value it does not recognize — see

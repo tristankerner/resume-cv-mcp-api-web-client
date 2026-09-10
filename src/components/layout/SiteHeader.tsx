@@ -19,7 +19,7 @@ import { store, type View } from "@/store/store";
 import { breadcrumbTrail, VIEW_META } from "@/store/views";
 import { useStore } from "@/store/useStore";
 
-export function SiteHeader() {
+export function SiteHeader({ onExpandSession }: { onExpandSession?: () => void }) {
   const { view, session, crumb, user } = useStore();
   const trail = breadcrumbTrail(view);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -68,7 +68,7 @@ export function SiteHeader() {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
-        {session && <SessionCountdown session={session} />}
+        {session && <SessionCountdown session={session} onExpand={onExpandSession} />}
         {canWrite(user, "applications") && (
           <Button variant="outline" size="sm" onClick={() => store.openEventComposer()}>
             <PlusIcon />

@@ -1,9 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { KeepAliveDialog } from "@/components/layout/KeepAliveDialog";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { EventComposer } from "@/features/tracking/EventComposer";
+import { useSessionKeepAlive } from "@/hooks/useSessionKeepAlive";
 import { SIDEBAR_STATE_STORAGE_KEY } from "@/lib/config";
 import { store } from "@/store/store";
 import { useStore } from "@/store/useStore";
@@ -23,7 +25,8 @@ function loadSidebarOpen(): boolean {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(loadSidebarOpen);
-  const { composer } = useStore();
+  const { composer, session } = useStore();
+  const keepAlive = useSessionKeepAlive();
 
   useEffect(() => {
     try {
@@ -38,7 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <SidebarProvider open={open} onOpenChange={setOpen}>
       <AppSidebar />
       <SidebarInset>
-        <SiteHeader />
+        <SiteHeader onExpandSession={keepAlive.requestOpen} />
         <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">{children}</div>
       </SidebarInset>
       {/* Mounted once here rather than per-page, so the header button and
@@ -51,6 +54,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         companyId={composer?.companyId}
         contactId={composer?.contactId}
         onCreated={(result) => composer?.onCreated?.(result)}
+      />
+      {/* Mounted once here for the same reason as EventComposer above —
+          useSessionKeepAlive owns the timer regardless of which page (or
+          none) is showing when it fires. */}
+      <KeepAliveDialog
+        open={keepAlive.open}
+        session={session}
+        busy={keepAlive.busy}
+        error={keepAlive.error}
+        onConfirm={keepAlive.confirm}
+        onSignOut={keepAlive.signOut}
       />
     </SidebarProvider>
   );

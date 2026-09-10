@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import * as authApi from "@/lib/api/auth";
+import type { Token } from "@/lib/api/auth";
 import { schemas } from "@/lib/api/documents";
 import { ApiError, errorMessage } from "@/lib/api/client";
-import { decodeJwtExp, loadLastApiBase, saveSession } from "@/lib/auth/session";
+import { decodeJwtExp, loadLastApiBase, saveSession, type Session } from "@/lib/auth/session";
+import { REFRESH_TOKEN_ASSUMED_LIFETIME_SECONDS } from "@/lib/config";
 import { store } from "@/store/store";
 import { useStore } from "@/store/useStore";
 
@@ -38,10 +40,17 @@ export function LoginView() {
   // Shared by both steps: whichever one ends with an access token finishes
   // the same way — decode the expiry, persist the session, load the user and
   // schemas, and land on the right view.
-  async function completeLogin(base: string, forUsername: string, token: { access_token: string }) {
+  async function completeLogin(base: string, forUsername: string, token: Token) {
     const exp = decodeJwtExp(token.access_token);
     if (!exp) throw new ApiError(0, "http", "Server returned a token with no expiry.");
-    const session = { apiBase: base, token: token.access_token, exp, username: forUsername };
+    const session: Session = {
+      apiBase: base,
+      token: token.access_token,
+      exp,
+      username: forUsername,
+      refreshToken: token.refresh_token,
+      refreshExp: Math.floor(Date.now() / 1000) + REFRESH_TOKEN_ASSUMED_LIFETIME_SECONDS,
+    };
     saveSession(session);
     store.set({ session });
     const [nextUser, nextSchemas] = await Promise.all([authApi.me(), schemas()]);
