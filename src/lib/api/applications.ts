@@ -147,8 +147,12 @@ export function listApplications(params: ListApplicationsParams = {}) {
   return request<ListEnvelope<ApplicationSummary>>("GET", `/applications${buildQuery({ ...params })}`);
 }
 
+// POST/PATCH answer with the list-row shape, not the detail shape — no
+// events, attachments, or related_by_job_code. Widening this back to
+// ApplicationDetail without also adding a refetch reintroduces the blank
+// page on save (nested collections missing from the response).
 export function createApplication(body: CreateApplicationRequest) {
-  return request<ApplicationDetail>("POST", "/applications", { body });
+  return request<ApplicationSummary>("POST", "/applications", { body });
 }
 
 export function getApplication(applicationId: number) {
@@ -156,7 +160,7 @@ export function getApplication(applicationId: number) {
 }
 
 export function updateApplication(applicationId: number, body: UpdateApplicationRequest) {
-  return request<ApplicationDetail>("PATCH", `/applications/${applicationId}`, { body });
+  return request<ApplicationSummary>("PATCH", `/applications/${applicationId}`, { body });
 }
 
 export function deleteApplication(applicationId: number) {

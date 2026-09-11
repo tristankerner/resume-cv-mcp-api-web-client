@@ -2,6 +2,7 @@ import type { ComposerResult } from "@/features/tracking/EventComposer";
 import type { Session } from "@/lib/auth/session";
 import type { User } from "@/lib/auth/scopes";
 import type { ApplicationStatus } from "@/lib/config";
+import { bump, INITIAL_REVISIONS, type Resource, type Revisions } from "@/store/refresh";
 
 // What opens the New Event composer with. The composer is mounted once at
 // the app shell; any page can open it by seeding this rather than mounting
@@ -117,6 +118,7 @@ export interface StoreState {
   contactsList: ContactsListState;
   apiKeysList: ApiKeysListState;
   composer: ComposerSeed | null;
+  revisions: Revisions;
 }
 
 type Listener = () => void;
@@ -138,6 +140,7 @@ class Store {
     contactsList: DEFAULT_CONTACTS_LIST_STATE,
     apiKeysList: DEFAULT_API_KEYS_LIST_STATE,
     composer: null,
+    revisions: INITIAL_REVISIONS,
   };
 
   listeners = new Set<Listener>();
@@ -171,6 +174,10 @@ class Store {
     this.set((s) => ({ apiKeysList: { ...s.apiKeysList, ...patch } }));
   }
 
+  invalidate(...resources: Resource[]): void {
+    this.set((s) => ({ revisions: bump(s.revisions, resources) }));
+  }
+
   openEventComposer(seed: ComposerSeed = {}): void {
     this.set({ composer: seed });
   }
@@ -189,6 +196,7 @@ class Store {
       contactsList: DEFAULT_CONTACTS_LIST_STATE,
       apiKeysList: DEFAULT_API_KEYS_LIST_STATE,
       composer: null,
+      revisions: INITIAL_REVISIONS,
     });
   }
 

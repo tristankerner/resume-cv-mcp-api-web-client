@@ -39,7 +39,9 @@ import {
   eventDraftValid,
   type EventDraft,
 } from "@/features/tracking/fields/EventFields";
+import { DuplicateWarning } from "@/features/tracking/DuplicateWarning";
 import { HistoryPanel } from "@/features/tracking/HistoryPanel";
+import { useRefreshOn } from "@/hooks/useRefreshOn";
 import * as applicationsApi from "@/lib/api/applications";
 import type {
   ApplicationDetail,
@@ -49,6 +51,7 @@ import type {
   EventMutationResponse,
 } from "@/lib/api/applications";
 import { ApiError, errorMessage } from "@/lib/api/client";
+import { asDuplicateConflict, type DuplicateConflict } from "@/lib/api/tracking";
 import { canDelete, canWrite } from "@/lib/auth/scopes";
 import { ATTACHMENT_KINDS, type ApplicationStatus, type AttachmentKind, type DocType } from "@/lib/config";
 import { applicationStatusVariant, labelFor } from "@/lib/tracking/labels";
@@ -84,6 +87,8 @@ export function ApplicationDetailView({ id }: { id: number }) {
   useEffect(() => {
     store.setCrumb(application ? application.job_title || "Untitled application" : null);
   }, [application]);
+
+  useRefreshOn(["applications", "events", "attachments"], load);
 
   async function doDelete() {
     if (!application) return;
@@ -128,7 +133,7 @@ export function ApplicationDetailView({ id }: { id: number }) {
         }
       />
 
-      <DetailsCard application={application} editing={editing} onEditToggle={setEditing} onChanged={setApplication} />
+      <DetailsCard application={application} editing={editing} onEditToggle={setEditing} onSaved={load} />
       <SameJobCodeCard application={application} />
       <EventsCard application={application} onChanged={setApplication} />
       <AttachmentsCard application={application} onChanged={setApplication} />
@@ -264,12 +269,12 @@ function DetailsCard({
   application,
   editing,
   onEditToggle,
-  onChanged,
+  onSaved,
 }: {
   application: ApplicationDetail;
   editing: boolean;
   onEditToggle: (editing: boolean) => void;
-  onChanged: (a: ApplicationDetail) => void;
+  onSaved: () => void;
 }) {
   const [draft, setDraft] = useState<ApplicationDraft>(EMPTY_APPLICATION_DRAFT);
   const [resumeDocName, setResumeDocName] = useState("");
@@ -279,6 +284,7 @@ function DetailsCard({
   const [skillDocName, setSkillDocName] = useState("");
   const [skillDocRevision, setSkillDocRevision] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<DuplicateConflict | null>(null);
   const [busy, setBusy] = useState(false);
 
   // The parent owns the Edit button (it sits in the page header next to
@@ -308,11 +314,11 @@ function DetailsCard({
     setSkillDocName(application.skill_document?.name ?? "");
     setSkillDocRevision(application.skill_document ? String(application.skill_document.revision_id) : "");
     setError(null);
+    setConflict(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
 
-  async function save(e: FormEvent) {
-    e.preventDefault();
+  async function save(force = false) {
     if (draft.company_id === null) return;
     setBusy(true);
     setError(null);
@@ -320,7 +326,7 @@ function DetailsCard({
     const metadataRef = resolveDocRef(metadataDocName, metadataDocRevision, application.metadata_document);
     const skillRef = resolveDocRef(skillDocName, skillDocRevision, application.skill_document);
     try {
-      const updated = await applicationsApi.updateApplication(application.id, {
+      await applicationsApi.updateApplication(application.id, {
         company_id: draft.company_id,
         job_title: draft.job_title.trim() || null,
         job_code: draft.job_code.trim() || null,
@@ -338,10 +344,17 @@ function DetailsCard({
           ? { metadata_document_name: metadataRef.name, metadata_revision_id: metadataRef.revision }
           : {}),
         ...(skillRef ? { skill_document_name: skillRef.name, skill_revision_id: skillRef.revision } : {}),
+        confirm_create_duplicate: force,
       });
-      onChanged(updated);
+      setConflict(null);
       onEditToggle(false);
+      onSaved();
     } catch (err) {
+      const dup = asDuplicateConflict(err);
+      if (dup) {
+        setConflict(dup);
+        return;
+      }
       if (err instanceof ApiError && err.status === 401) return;
       setError(errorMessage(err));
     } finally {
@@ -356,8 +369,25 @@ function DetailsCard({
       </CardHeader>
       <CardContent>
         <Banner kind="error">{error}</Banner>
+        {conflict && (
+          <div className="mb-4">
+            <DuplicateWarning
+              conflict={conflict}
+              busy={busy}
+              forceLabel="Save anyway"
+              onOpen={(id) => store.navigate("application", { id })}
+              onForce={() => save(true)}
+            />
+          </div>
+        )}
         {editing ? (
-          <form onSubmit={save} className="space-y-4">
+          <form
+            onSubmit={(e: FormEvent) => {
+              e.preventDefault();
+              save(false);
+            }}
+            className="space-y-4"
+          >
             <ApplicationFields
               value={draft}
               onChange={setDraft}
@@ -565,18 +595,7 @@ function EventsCard({
             <Button
               size="sm"
               variant="outline"
-              onClick={() =>
-                store.openEventComposer({
-                  applicationId: application.id,
-                  onCreated: (result) =>
-                    applyEvent(
-                      result.event,
-                      result.applicationStatus,
-                      result.applicationStatusLabel,
-                      result.applicationStatusChangedAt,
-                    ),
-                })
-              }
+              onClick={() => store.openEventComposer({ applicationId: application.id })}
             >
               Add event
             </Button>

@@ -5,6 +5,7 @@ import { Banner } from "@/components/common/Banner";
 import { DataTableFooter } from "@/components/common/DataTableFooter";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EditableCell } from "@/components/common/inline/EditableCell";
+import { useRefreshOn } from "@/hooks/useRefreshOn";
 import { TextEditor } from "@/components/common/inline/editors/TextEditor";
 import { UrlEditor } from "@/components/common/inline/editors/UrlEditor";
 import { useInlineEdit } from "@/components/common/inline/useInlineEdit";
@@ -57,6 +58,8 @@ export function CompanyListView() {
       setError(errorMessage(err));
     }
   }
+
+  useRefreshOn(["companies", "applications", "contacts"], load);
 
   return (
     <div>
@@ -146,9 +149,12 @@ export function CompanyListView() {
                         optimisticValues: { name: value },
                         patch: (id, body) => companiesApi.updateCompany(id, body),
                         body: { name: value.trim(), confirm_create_duplicate: !!force },
+                        invalidates: ["companies"],
                       })
                     }
                     onOpenCandidate={(id) => store.navigate("company", { id })}
+                    exactIsFinal
+                    forceLabel="Save anyway"
                   />
                   <EditableCell<string>
                     value={c.website ?? ""}
@@ -179,6 +185,7 @@ export function CompanyListView() {
                         optimisticValues: { website: value.trim() || null },
                         patch: (id, body) => companiesApi.updateCompany(id, body),
                         body: { website: value.trim() || null },
+                        invalidates: ["companies"],
                       })
                     }
                   />

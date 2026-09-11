@@ -95,8 +95,32 @@ export function listCompanies(params: ListCompaniesParams = {}) {
   return request<ListEnvelope<CompanySummary>>("GET", `/companies${buildQuery({ ...params })}`);
 }
 
+const COMPANIES_PAGE = 200; // the server's hard cap — routers/companies.py:21
+
+/**
+ * Every company, paged. `GET /companies` caps `limit` at 200; callers that
+ * need a complete set (a filter dropdown, a website lookup) must page it or
+ * they silently show a truncated world.
+ */
+export async function listAllCompanies(): Promise<CompanySummary[]> {
+  const companies: CompanySummary[] = [];
+  let offset = 0;
+  for (;;) {
+    const page = await listCompanies({ limit: COMPANIES_PAGE, offset });
+    if (page.data.length === 0) break;
+    companies.push(...page.data);
+    offset += page.data.length;
+    if (companies.length >= page.total) break;
+  }
+  return companies;
+}
+
+// POST/PATCH answer with the list-row shape, not the detail shape — no
+// relationships, stack, contacts, or recent_applications. Widening this back
+// to CompanyDetail without also adding a refetch reintroduces the blank page
+// on save (nested collections missing from the response).
 export function createCompany(body: CreateCompanyRequest) {
-  return request<CompanyDetail>("POST", "/companies", { body });
+  return request<CompanySummary>("POST", "/companies", { body });
 }
 
 export function getCompany(companyId: number) {
@@ -104,7 +128,7 @@ export function getCompany(companyId: number) {
 }
 
 export function updateCompany(companyId: number, body: UpdateCompanyRequest) {
-  return request<CompanyDetail>("PATCH", `/companies/${companyId}`, { body });
+  return request<CompanySummary>("PATCH", `/companies/${companyId}`, { body });
 }
 
 export function deleteCompany(companyId: number) {

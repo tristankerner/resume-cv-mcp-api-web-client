@@ -36,6 +36,7 @@ import * as companiesApi from "@/lib/api/companies";
 import * as contactsApi from "@/lib/api/contacts";
 import { asDuplicateConflict, type DuplicateConflict } from "@/lib/api/tracking";
 import type { ApplicationStatus } from "@/lib/config";
+import { store } from "@/store/store";
 
 export interface ComposerResult {
   event: ApplicationEvent;
@@ -351,6 +352,13 @@ export function EventComposer({
           setError("The event was not recorded — no event data came back.");
           return;
         }
+        store.invalidate(
+          "events",
+          "audit",
+          "applications",
+          ...(companyCreated ? (["companies"] as const) : []),
+          ...(contactCreated ? (["contacts"] as const) : []),
+        );
         onCreated?.({
           event: resp.event,
           applicationId,
@@ -476,6 +484,7 @@ export function EventComposer({
                       <DuplicateWarning
                         conflict={conflict.conflict}
                         busy={busy}
+                        exactIsFinal
                         openLabel="Use this one"
                         onOpen={(id) => submit({ adoptCompanyId: id })}
                         onForce={() => submit({ forceCompany: true })}

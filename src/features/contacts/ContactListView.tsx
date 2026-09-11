@@ -5,6 +5,7 @@ import { Banner } from "@/components/common/Banner";
 import { DataTableFooter } from "@/components/common/DataTableFooter";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EditableCell } from "@/components/common/inline/EditableCell";
+import { useRefreshOn } from "@/hooks/useRefreshOn";
 import { CompanyEditor } from "@/components/common/inline/editors/CompanyEditor";
 import { EmailEditor } from "@/components/common/inline/editors/EmailEditor";
 import { PhoneEditor } from "@/components/common/inline/editors/PhoneEditor";
@@ -136,6 +137,8 @@ export function ContactListView() {
       setError(errorMessage(err));
     }
   }
+
+  useRefreshOn(["contacts"], load);
 
   return (
     <div>

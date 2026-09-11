@@ -6,6 +6,7 @@ import { DataTableFooter } from "@/components/common/DataTableFooter";
 import { DateText } from "@/components/common/DateTime";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EditableCell } from "@/components/common/inline/EditableCell";
+import { useRefreshOn } from "@/hooks/useRefreshOn";
 import { CompanyEditor } from "@/components/common/inline/editors/CompanyEditor";
 import { DateEditor } from "@/components/common/inline/editors/DateEditor";
 import { TextEditor } from "@/components/common/inline/editors/TextEditor";
@@ -29,6 +30,7 @@ import type { ListEnvelope } from "@/lib/api/tracking";
 import { canWrite } from "@/lib/auth/scopes";
 import { APPLICATION_STATUSES, type ApplicationStatus } from "@/lib/config";
 import { applicationStatusVariant } from "@/lib/tracking/labels";
+import { safeHref } from "@/lib/tracking/links";
 import { store } from "@/store/store";
 import { useStore } from "@/store/useStore";
 
@@ -55,11 +57,10 @@ export function ApplicationListView() {
   };
 
   useEffect(() => {
-    companiesApi.listCompanies({ limit: 200 }).then(
-      (resp) => setCompanies(resp.data),
-      () => {},
-    );
+    companiesApi.listAllCompanies().then(setCompanies, () => {});
   }, []);
+
+  const websiteByCompany = useMemo(() => new Map(companies.map((c) => [c.id, c.website])), [companies]);
 
   useEffect(() => {
     const handle = setTimeout(load, 300);
@@ -86,6 +87,8 @@ export function ApplicationListView() {
       setError(errorMessage(err));
     }
   }
+
+  useRefreshOn(["applications", "events"], load);
 
   const filtersActive =
     query !== "" ||
@@ -231,6 +234,7 @@ export function ApplicationListView() {
             <TableHeader>
               <TableRow>
                 <TableHead>Company</TableHead>
+                <TableHead>Company URL</TableHead>
                 <TableHead>Job title</TableHead>
                 <TableHead>Job code</TableHead>
                 <TableHead>Status</TableHead>
@@ -265,6 +269,24 @@ export function ApplicationListView() {
                     }
                     onOpenCandidate={(id) => store.navigate("company", { id })}
                   />
+                  <TableCell data-label="Company URL">
+                    {(() => {
+                      const website = websiteByCompany.get(app.company_id) ?? null;
+                      const href = safeHref(website);
+                      return href ? (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="text-primary underline underline-offset-4"
+                        >
+                          {website}
+                        </a>
+                      ) : (
+                        "—"
+                      );
+                    })()}
+                  </TableCell>
                   <EditableCell<string>
                     value={app.job_title ?? ""}
                     editable={writable}
@@ -324,6 +346,7 @@ export function ApplicationListView() {
                       })
                     }
                     onOpenCandidate={(id) => store.navigate("application", { id })}
+                    forceLabel="Save anyway"
                   />
                   <TableCell data-label="Status">
                     <Badge variant={applicationStatusVariant(app.status)}>{app.status_label}</Badge>

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
+import { useRefreshOn } from "@/hooks/useRefreshOn";
 import * as auditApi from "@/lib/api/audit";
 import type { AuditEntry, AuditOperation } from "@/lib/api/audit";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -45,11 +46,13 @@ export function HistoryPanel({ table, rowId }: { table: string; rowId: number })
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useRefreshOn(["audit"], () => {
+    if (expanded) refetch();
+  });
+
   if (!canReadAudit(user)) return null;
 
-  async function expand() {
-    setExpanded(true);
-    if (entries !== null) return;
+  async function refetch() {
     setError(null);
     try {
       const resp = await auditApi.listAudit({ table, row_id: rowId, limit: 50 });
@@ -58,6 +61,12 @@ export function HistoryPanel({ table, rowId }: { table: string; rowId: number })
       if (err instanceof ApiError && err.status === 401) return;
       setError(errorMessage(err));
     }
+  }
+
+  async function expand() {
+    setExpanded(true);
+    if (entries !== null) return;
+    await refetch();
   }
 
   if (!expanded) {

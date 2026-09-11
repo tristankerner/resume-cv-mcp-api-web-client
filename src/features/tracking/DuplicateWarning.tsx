@@ -7,18 +7,26 @@ export function DuplicateWarning({
   onOpen,
   openLabel = "Open",
   onForce,
+  forceLabel = "Create anyway",
+  // An exact normalized-name match is refused unconditionally server-side for
+  // companies and company stack items — the unique index rejects it whatever
+  // confirm_create_duplicate says — so offering an override there would be a
+  // button that cannot succeed. Applications and contacts have no such rule
+  // and must keep the override even on an exact match, which for a shared job
+  // code is *every* match. Opt in; do not infer from the payload.
+  exactIsFinal = false,
   busy,
 }: {
   conflict: DuplicateConflict;
   onOpen: (id: number) => void;
   openLabel?: string;
   onForce: () => void;
+  forceLabel?: string;
+  exactIsFinal?: boolean;
   busy: boolean;
 }) {
-  // An exact normalized-name match is refused unconditionally server-side —
-  // the unique index would reject it regardless of confirm_create_duplicate —
-  // so offering "Create anyway" here would be an override that cannot succeed.
-  const hasExactMatch = conflict.candidates.some((c) => c.match === "exact");
+  const canForce = !exactIsFinal || !conflict.candidates.some((c) => c.match === "exact");
+  const busyLabel = forceLabel === "Create anyway" ? "Creating…" : "Saving…";
 
   return (
     <Banner kind="warn">
@@ -38,9 +46,9 @@ export function DuplicateWarning({
             </li>
           ))}
         </ul>
-        {!hasExactMatch && (
+        {canForce && (
           <Button size="sm" variant="secondary" disabled={busy} onClick={onForce}>
-            {busy ? "Creating…" : "Create anyway"}
+            {busy ? busyLabel : forceLabel}
           </Button>
         )}
       </div>

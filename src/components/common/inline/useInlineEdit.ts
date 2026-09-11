@@ -3,6 +3,8 @@ import type { Dispatch, SetStateAction } from "react";
 
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { asDuplicateConflict, type DuplicateConflict } from "@/lib/api/tracking";
+import { store } from "@/store/store";
+import type { Resource } from "@/store/refresh";
 
 export interface InlineCommitResult {
   ok: boolean;
@@ -26,12 +28,14 @@ export function useInlineEdit<Row>() {
       optimisticValues: Partial<Row>;
       patch: (id: number, body: Body) => Promise<Row>;
       body: Body;
+      invalidates?: readonly Resource[];
     }): Promise<InlineCommitResult> => {
-      const { rowId, getId, setRows, previousValues, optimisticValues, patch, body } = opts;
+      const { rowId, getId, setRows, previousValues, optimisticValues, patch, body, invalidates } = opts;
       setRows((current) => current.map((r) => (getId(r) === rowId ? { ...r, ...optimisticValues } : r)));
       try {
         const updated = await patch(rowId, body);
         setRows((current) => current.map((r) => (getId(r) === rowId ? updated : r)));
+        if (invalidates && invalidates.length > 0) store.invalidate(...invalidates);
         return { ok: true };
       } catch (err) {
         setRows((current) => current.map((r) => (getId(r) === rowId ? { ...r, ...previousValues } : r)));

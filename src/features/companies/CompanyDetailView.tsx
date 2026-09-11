@@ -30,6 +30,7 @@ import { CompanyPicker } from "@/features/tracking/CompanyPicker";
 import { DuplicateWarning } from "@/features/tracking/DuplicateWarning";
 import { CompanyFields, EMPTY_COMPANY_DRAFT, type CompanyDraft } from "@/features/tracking/fields/CompanyFields";
 import { HistoryPanel } from "@/features/tracking/HistoryPanel";
+import { useRefreshOn } from "@/hooks/useRefreshOn";
 import * as companiesApi from "@/lib/api/companies";
 import type { CompanyDetail, CompanyRelationship, CompanyStackItem } from "@/lib/api/companies";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -64,13 +65,15 @@ export function CompanyDetailView({ id }: { id: number }) {
     store.setCrumb(company ? company.name : null);
   }, [company]);
 
+  useRefreshOn(["companies", "applications", "contacts", "events"], load);
+
   if (error) return <Banner kind="error">{error}</Banner>;
   if (company === null) return <p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner /> Loading…</p>;
 
   return (
     <div className="space-y-5">
       <CompanyHeader company={company} />
-      <DetailsCard company={company} onChanged={setCompany} />
+      <DetailsCard company={company} onSaved={load} />
       <RelationshipsCard company={company} onChanged={load} />
       <StackCard company={company} onChanged={load} />
       <ContactsCard company={company} />
@@ -149,10 +152,10 @@ function CompanyHeader({ company }: { company: CompanyDetail }) {
 
 function DetailsCard({
   company,
-  onChanged,
+  onSaved,
 }: {
   company: CompanyDetail;
-  onChanged: (c: CompanyDetail) => void;
+  onSaved: () => void;
 }) {
   const { user } = useStore();
   const [editing, setEditing] = useState(false);
@@ -177,16 +180,16 @@ function DetailsCard({
     setBusy(true);
     setError(null);
     try {
-      const updated = await companiesApi.updateCompany(company.id, {
+      await companiesApi.updateCompany(company.id, {
         name: draft.name.trim(),
         website: draft.website.trim() || null,
         description: draft.description.trim() || null,
         personal_note: draft.personal_note.trim() || null,
         confirm_create_duplicate: force,
       });
-      onChanged(updated);
       setConflict(null);
       setEditing(false);
+      onSaved();
     } catch (err) {
       const dup = asDuplicateConflict(err);
       if (dup) {
@@ -217,6 +220,8 @@ function DetailsCard({
             <DuplicateWarning
               conflict={conflict}
               busy={busy}
+              exactIsFinal
+              forceLabel="Save anyway"
               onOpen={(id) => store.navigate("company", { id })}
               onForce={() => save(true)}
             />
@@ -530,7 +535,13 @@ function StackCard({ company, onChanged }: { company: CompanyDetail; onChanged: 
         <Banner kind="error">{error}</Banner>
         {conflict && (
           <div className="mb-4">
-            <DuplicateWarning conflict={conflict} busy={busy} onOpen={() => {}} onForce={() => addItem(true)} />
+            <DuplicateWarning
+              conflict={conflict}
+              busy={busy}
+              exactIsFinal
+              onOpen={() => {}}
+              onForce={() => addItem(true)}
+            />
           </div>
         )}
         {company.stack.length === 0 ? (

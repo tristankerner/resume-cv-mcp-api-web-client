@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { ContactFields, contactDraftValid, emptyContactDraft, type ContactDraft } from "@/features/tracking/fields/ContactFields";
 import { HistoryPanel } from "@/features/tracking/HistoryPanel";
+import { useRefreshOn } from "@/hooks/useRefreshOn";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import * as contactsApi from "@/lib/api/contacts";
 import type { Contact } from "@/lib/api/contacts";
@@ -60,6 +61,8 @@ export function ContactDetailView({ id }: { id: number }) {
     }
     store.setCrumb([contact.last_name, contact.first_name].filter(Boolean).join(", ") || contact.email || "Contact");
   }, [contact]);
+
+  useRefreshOn(["contacts"], load);
 
   function startEdit() {
     if (!contact) return;

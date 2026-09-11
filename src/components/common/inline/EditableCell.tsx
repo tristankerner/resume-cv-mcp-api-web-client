@@ -24,6 +24,8 @@ export function EditableCell<T>({
   onOpenCandidate,
   dataLabel,
   className,
+  exactIsFinal,
+  forceLabel,
 }: {
   value: T;
   editable: boolean;
@@ -39,6 +41,8 @@ export function EditableCell<T>({
   onOpenCandidate?: (id: number) => void;
   dataLabel?: string;
   className?: string;
+  exactIsFinal?: boolean;
+  forceLabel?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -155,6 +159,8 @@ export function EditableCell<T>({
             <DuplicateWarning
               conflict={conflict}
               busy={busy}
+              exactIsFinal={exactIsFinal}
+              forceLabel={forceLabel}
               onOpen={(id) => onOpenCandidate?.(id)}
               onForce={() => handleCommit(pendingValue, true)}
             />
