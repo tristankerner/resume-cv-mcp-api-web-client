@@ -7,6 +7,10 @@ companies, contacts), API keys, second factors (an authenticator app and
 backup codes), passkeys, and — for an account holding `users:admin` — user
 and OAuth client administration, against that service.
 
+<a href="https://github.com/user-attachments/assets/c16e7390-6c53-4cd7-bb8c-9c37fde015b9" target="_blank"><img width="3742" height="1933" alt="image" src="https://github.com/user-attachments/assets/c16e7390-6c53-4cd7-bb8c-9c37fde015b9" /></a>
+
+<a href="https://github.com/user-attachments/assets/8f0530d3-6f6b-4b4e-a26b-1d99e2759e6b" target="_blank"><img width="3732" height="1940" alt="image" src="https://github.com/user-attachments/assets/8f0530d3-6f6b-4b4e-a26b-1d99e2759e6b" /></a>
+
 "Client" means several things across that project's docs — an AI/MCP client
 (Claude Desktop, etc.), an OAuth client, and a front-end UI. This repository
 is only the last of those: a single-page application that talks to the API
